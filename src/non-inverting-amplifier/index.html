@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Non-Inverting Op-Amp Calculator</title>
-    <style>
-        input[type="number"] {
-            width: 80px;
-        }
-    </style>
+    <link rel="stylesheet" href="../common.css">
 </head>
 <body>
     <h1>Non-Inverting Op-Amp Calculator</h1>
+    <p class="intro">
+        Design a non-inverting amplifier using an op-amp. The output is in phase
+        with the input, and offers very high input impedance.
+    </p>
 
     <h2>Inputs</h2>
     <table>
@@ -32,10 +32,11 @@
             <td><input type="number" id="vcc" value="12" step="1" min="5"> V</td>
         </tr>
     </table>
-    <br>
-    <button onclick="calculate()">Calculate</button>
 
-    <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
+    <button onclick="calculate()">Calculate</button>
+    <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
+
+    <div id="warning" style="display: none;"></div>
 
     <div id="results">
         <h2>Schematic</h2>
@@ -175,6 +176,15 @@
 
             document.getElementById('note').textContent = notes.join(' ');
         }
+
+        function resetDefaults() {
+            document.getElementById('gain').value = '10';
+            document.getElementById('vin').value = '100';
+            document.getElementById('r1').value = '10000';
+            document.getElementById('vcc').value = '12';
+            calculate();
+        }
+
         window.onload = calculate;
     </script>
 </body>

@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sallen-Key Filter Calculator</title>
+    <link rel="stylesheet" href="../common.css">
     <style>
-        input[type="number"] {
-            width: 80px;
-        }
         .combined-schematic {
             overflow-x: auto;
             padding: 10px;
@@ -48,13 +46,17 @@
 </head>
 <body>
     <h1>Sallen-Key Filter Calculator</h1>
+    <p class="intro">
+        Design an active Sallen-Key filter using op-amps. Supports lowpass and highpass
+        configurations with Butterworth, Bessel, or Chebyshev responses.
+    </p>
 
     <h2>Inputs</h2>
     <table>
         <tr>
             <td>Filter type:</td>
             <td>
-                <select id="filterType" onchange="calculate()">
+                <select id="filterType">
                     <option value="lowpass">Lowpass</option>
                     <option value="highpass">Highpass</option>
                 </select>
@@ -63,7 +65,7 @@
         <tr>
             <td>Response:</td>
             <td>
-                <select id="responseType" onchange="updateRippleVisibility(); calculate()">
+                <select id="responseType" onchange="updateRippleVisibility()">
                     <option value="butterworth">Butterworth (maximally flat)</option>
                     <option value="chebyshev">Chebyshev Type I (steeper rolloff)</option>
                 </select>
@@ -72,7 +74,7 @@
         <tr id="rippleRow" style="display: none;">
             <td>Passband ripple:</td>
             <td>
-                <select id="ripple" onchange="calculate()">
+                <select id="ripple">
                     <option value="0.5">0.5 dB</option>
                     <option value="1" selected>1 dB</option>
                     <option value="2">2 dB</option>
@@ -83,7 +85,7 @@
         <tr>
             <td>Order:</td>
             <td>
-                <select id="order" onchange="calculate()">
+                <select id="order">
                     <option value="2">2nd order (-12 dB/oct)</option>
                     <option value="4">4th order (-24 dB/oct)</option>
                     <option value="6">6th order (-36 dB/oct)</option>
@@ -93,19 +95,22 @@
         </tr>
         <tr>
             <td>Cutoff frequency:</td>
-            <td><input type="number" id="fc" value="1000" step="100" min="1" onchange="calculate()"> Hz</td>
+            <td><input type="number" id="fc" value="1000" step="100" min="1"> Hz</td>
         </tr>
         <tr>
             <td>Capacitor value:</td>
-            <td><input type="number" id="cval" value="10" step="1" min="1" onchange="calculate()"> nF</td>
+            <td><input type="number" id="cval" value="10" step="1" min="1"> nF</td>
         </tr>
         <tr>
             <td>Supply voltage (+/-):</td>
-            <td><input type="number" id="vcc" value="12" step="1" min="5" onchange="calculate()"> V</td>
+            <td><input type="number" id="vcc" value="12" step="1" min="5"> V</td>
         </tr>
     </table>
 
-    <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
+    <button onclick="calculate()">Calculate</button>
+    <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
+
+    <div id="warning" style="display: none;"></div>
 
     <div id="results">
         <h2>Filter Summary</h2>
@@ -431,6 +436,18 @@
             // Draw frequency response
             const responseDiv = document.getElementById('response');
             responseDiv.innerHTML = drawFrequencyResponse(stages, responseType, rippleDb, fc);
+        }
+
+        function resetDefaults() {
+            document.getElementById('filterType').value = 'lowpass';
+            document.getElementById('responseType').value = 'butterworth';
+            document.getElementById('ripple').value = '1';
+            document.getElementById('order').value = '2';
+            document.getElementById('fc').value = '1000';
+            document.getElementById('cval').value = '10';
+            document.getElementById('vcc').value = '12';
+            updateRippleVisibility();
+            calculate();
         }
 
         window.onload = calculate;

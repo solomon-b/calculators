@@ -4,28 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Impedance Matching - The Hidden Voltage Divider</title>
+    <link rel="stylesheet" href="../common.css">
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        h1 { color: #333; }
-        h2 { color: #555; margin-top: 2em; }
-        .concept-box {
-            background: #f0f7ff;
-            border-left: 4px solid #2266cc;
-            padding: 15px 20px;
-            margin: 20px 0;
-        }
-        .warning-box {
-            background: #fff8f0;
-            border-left: 4px solid #cc6622;
-            padding: 15px 20px;
-            margin: 20px 0;
-        }
+        /* Page-specific styles */
         .calculator {
             background: #fafafa;
             border: 1px solid #ddd;
@@ -35,12 +16,6 @@
         }
         .calculator input[type="number"] {
             width: 100px;
-            padding: 5px;
-            font-size: 14px;
-        }
-        .calculator select {
-            padding: 5px;
-            font-size: 14px;
         }
         .results {
             margin-top: 20px;
@@ -51,20 +26,14 @@
         }
         .results table {
             width: 100%;
-            border-collapse: collapse;
         }
         .results td {
             padding: 8px 0;
             border-bottom: 1px solid #eee;
         }
         .results td:last-child {
-            text-align: right;
-            font-family: monospace;
             font-weight: bold;
         }
-        .good { color: #2a2; }
-        .okay { color: #a80; }
-        .bad { color: #c22; }
         .presets {
             display: flex;
             flex-wrap: wrap;
@@ -88,11 +57,7 @@
             color: white;
             border-color: #2266cc;
         }
-        .diagram {
-            text-align: center;
-            margin: 20px 0;
-        }
-        .formula {
+        .formula-display {
             font-family: serif;
             font-size: 1.2em;
             text-align: center;
@@ -102,17 +67,11 @@
             border-radius: 4px;
             margin: 15px 0;
         }
-        code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.95em;
-        }
     </style>
 </head>
 <body>
     <h1>Impedance Matching</h1>
-    <p style="font-size: 1.1em; color: #555;">
+    <p class="intro">
         Every connection between a source and load is secretly a voltage divider.
         Understanding this explains most "mysterious" signal loss in electronics.
     </p>
@@ -126,7 +85,7 @@
 
     <div class="diagram" id="dividerDiagram"></div>
 
-    <div class="formula">
+    <div class="formula-display">
         V<sub>load</sub> = V<sub>source</sub> × <sup>Z<sub>load</sub></sup>&frasl;<sub>(Z<sub>source</sub> + Z<sub>load</sub>)</sub>
     </div>
 
@@ -175,7 +134,8 @@
             </tr>
         </table>
 
-        <button onclick="calculate()" style="margin-top: 15px; padding: 10px 20px; font-size: 14px;">Calculate</button>
+        <button onclick="calculate()" style="margin-top: 15px;">Calculate</button>
+        <button onclick="resetDefaults()" style="margin-top: 15px; margin-left: 10px;">Reset</button>
 
         <div class="results" id="results"></div>
     </div>
@@ -468,6 +428,16 @@
             }
 
             document.getElementById('results').innerHTML = html;
+        }
+
+        function resetDefaults() {
+            document.getElementById('zsource').value = '1';
+            document.getElementById('zsourceUnit').value = '1000';
+            document.getElementById('zload').value = '10';
+            document.getElementById('zloadUnit').value = '1000';
+            document.getElementById('vsource').value = '1';
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            calculate();
         }
 
         // Initialize

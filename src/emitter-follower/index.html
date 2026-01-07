@@ -4,24 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Emitter Follower Calculator</title>
-    <style>
-        input[type="number"] {
-            width: 80px;
-        }
-        td[title] {
-            cursor: help;
-            border-bottom: 1px dotted #999;
-        }
-        .hint {
-            font-size: 0.85em;
-            color: #888;
-            margin-top: 5px;
-        }
-    </style>
+    <link rel="stylesheet" href="../common.css">
 </head>
 <body>
     <h1>Emitter Follower Calculator</h1>
-    <p style="max-width: 600px; color: #555;">
+    <p class="intro">
         Design a common-collector (emitter follower) buffer amplifier.
         This topology provides near-unity gain with high input impedance and low output impedance -
         ideal for driving low-impedance loads without loading the source.
@@ -62,14 +49,14 @@
     <button onclick="calculate()">Calculate</button>
     <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
 
-    <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
+    <div id="warning" style="display: none;"></div>
 
     <div id="results">
         <h2>Schematic</h2>
         <div id="schematic"></div>
 
         <h2>Calculated Values</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             Component values rounded to standard E24 series.
         </p>
         <table>
@@ -81,7 +68,7 @@
         </table>
 
         <h2>Buffer Performance</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             The emitter follower excels at impedance transformation - high Zin, low Zout.
             Gain is slightly less than 1 due to the voltage divider formed by re' and Re.
         </p>
@@ -97,14 +84,14 @@
         <p id="note" style="color: #c60;"></p>
 
         <h2>Input / Output Waveforms</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             The emitter follower has no phase inversion - output follows input (hence the name).
             Clipping occurs if output exceeds the available swing.
         </p>
         <div id="waveforms"></div>
 
         <h2>DC Load Line</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             The load line shows the operating path. For an emitter follower, the DC load is just Re
             (collector connects directly to Vcc).
         </p>
@@ -112,29 +99,29 @@
 
         <h2>Design Formulas</h2>
         <details>
-            <summary style="cursor: pointer; color: #2266cc; font-weight: bold;">Click to show step-by-step design procedure</summary>
-            <div style="margin-top: 15px; padding: 15px; background: #f8f8f8; border-radius: 5px; font-size: 0.9em;">
-                <h3 style="margin-top: 0;">Step 1: Choose Emitter Current</h3>
+            <summary>Click to show step-by-step design procedure</summary>
+            <div>
+                <h3>Step 1: Choose Emitter Current</h3>
                 <p>Higher current = lower output impedance, but more power dissipation:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     I<sub>E</sub> chosen based on load requirements<br>
                     Rule of thumb: I<sub>E</sub> > 10 × (V<sub>out</sub> / R<sub>load</sub>)
                 </code>
 
                 <h3>Step 2: Calculate Emitter Resistor</h3>
                 <p>Set Ve at roughly half of Vcc for maximum swing:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     V<sub>E</sub> ≈ V<sub>CC</sub> / 2<br>
                     R<sub>E</sub> = V<sub>E</sub> / I<sub>E</sub>
                 </code>
 
                 <h3>Step 3: Calculate Intrinsic Emitter Resistance</h3>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     r<sub>e</sub>' = 26mV / I<sub>E</sub> = 0.026 / I<sub>E</sub>
                 </code>
 
                 <h3>Step 4: Calculate Bias Resistors</h3>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     V<sub>B</sub> = V<sub>E</sub> + 0.7V<br>
                     I<sub>B</sub> = I<sub>E</sub> / β<br>
                     I<sub>divider</sub> = 10 × I<sub>B</sub><br>
@@ -145,31 +132,31 @@
 
                 <h3>Step 5: Calculate Voltage Gain</h3>
                 <p>Gain is slightly less than 1:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     A<sub>v</sub> = (R<sub>E</sub> ∥ R<sub>load</sub>) / (r<sub>e</sub>' + R<sub>E</sub> ∥ R<sub>load</sub>)<br>
                     A<sub>v</sub> ≈ 0.95 to 0.99 typically
                 </code>
 
                 <h3>Step 6: Calculate Input Impedance</h3>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     Z<sub>in(base)</sub> = β × (r<sub>e</sub>' + R<sub>E</sub> ∥ R<sub>load</sub>)<br>
                     Z<sub>in</sub> = R<sub>1</sub> ∥ R<sub>2</sub> ∥ Z<sub>in(base)</sub>
                 </code>
 
                 <h3>Step 7: Calculate Output Impedance</h3>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     Z<sub>out</sub> = (r<sub>e</sub>' + R<sub>source</sub>/β) ∥ R<sub>E</sub><br>
                     For low R<sub>source</sub>: Z<sub>out</sub> ≈ r<sub>e</sub>' ∥ R<sub>E</sub> ≈ r<sub>e</sub>'
                 </code>
 
                 <h3>Step 8: Calculate Coupling Capacitors</h3>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     C<sub>in</sub> = 1 / (2π × f<sub>low</sub> × Z<sub>in</sub>)<br>
                     C<sub>out</sub> = 1 / (2π × f<sub>low</sub> × R<sub>load</sub>)
                 </code>
 
                 <h3>Key Characteristics</h3>
-                <ul style="margin-top: 10px;">
+                <ul>
                     <li><b>Voltage gain:</b> A<sub>v</sub> ≈ 1 (unity gain buffer)</li>
                     <li><b>Current gain:</b> A<sub>i</sub> ≈ β (high)</li>
                     <li><b>Power gain:</b> A<sub>p</sub> ≈ β (significant)</li>

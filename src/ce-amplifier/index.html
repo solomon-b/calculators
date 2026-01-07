@@ -4,24 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CE Amplifier Calculator</title>
-    <style>
-        input[type="number"] {
-            width: 80px;
-        }
-        td[title] {
-            cursor: help;
-            border-bottom: 1px dotted #999;
-        }
-        .hint {
-            font-size: 0.85em;
-            color: #888;
-            margin-top: 5px;
-        }
-    </style>
+    <link rel="stylesheet" href="../common.css">
 </head>
 <body>
     <h1>CE Amplifier Calculator</h1>
-    <p style="max-width: 600px; color: #555;">
+    <p class="intro">
         Design a common-emitter amplifier with voltage divider biasing.
         This topology trades some gain for stable, predictable operation across transistor variations.
     </p>
@@ -78,14 +65,14 @@
     <button onclick="calculate()">Calculate</button>
     <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
 
-    <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
+    <div id="warning" style="display: none;"></div>
 
     <div id="results">
         <h2>Schematic</h2>
         <div id="schematic"></div>
 
         <h2>Calculated Values</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             Component values rounded to standard E24 series. The bias resistors (R1, R2) set the DC operating point.
         </p>
         <table>
@@ -99,7 +86,7 @@
         </table>
 
         <h2>Gain Analysis</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             The gain you actually get depends on source and load impedances. The transistor provides its gain,
             but some signal is lost at the input (voltage divider with source impedance) and output (voltage divider with load).
         </p>
@@ -116,14 +103,14 @@
         <p id="note" style="color: #c60;"></p>
 
         <h2>Input / Output Waveforms</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             The CE amplifier inverts the signal (180° phase shift) and amplifies it.
             If the output exceeds the available swing, it clips (flattens) at the peaks.
         </p>
         <div id="waveforms"></div>
 
         <h2>Load Lines</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             The DC load line (solid) shows the operating path set by Rc + Re.
             When a load is connected, the AC load line (dashed) is steeper because AC sees Rc || Rload.
             The Q-point sits on both lines - DC sets the bias, AC determines the signal swing.
@@ -131,7 +118,7 @@
         <div id="loadLine"></div>
 
         <h2>Frequency Response</h2>
-        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+        <p class="section-note">
             Low frequencies are limited by coupling capacitors (Cin, Cout) and bypass capacitor (Ce).
             High frequencies are limited by the transistor's internal capacitances and β rolloff.
         </p>
@@ -139,48 +126,48 @@
 
         <h2>Design Formulas</h2>
         <details>
-            <summary style="cursor: pointer; color: #2266cc; font-weight: bold;">Click to show step-by-step design procedure</summary>
-            <div style="margin-top: 15px; padding: 15px; background: #f8f8f8; border-radius: 5px; font-size: 0.9em;">
-                <h3 style="margin-top: 0;">Step 1: Set the DC Operating Point</h3>
+            <summary>Click to show step-by-step design procedure</summary>
+            <div>
+                <h3>Step 1: Set the DC Operating Point</h3>
                 <p>Choose emitter voltage for thermal stability (typically 10% of Vcc or 1V minimum):</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     V<sub>E</sub> = max(0.1 × V<sub>CC</sub>, 1V)<br>
                     V<sub>B</sub> = V<sub>E</sub> + 0.7V
                 </code>
 
                 <h3>Step 2: Calculate Emitter Resistor</h3>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     R<sub>E</sub> = V<sub>E</sub> / I<sub>C</sub>
                 </code>
 
                 <h3>Step 3: Calculate Intrinsic Emitter Resistance</h3>
                 <p>This is the transistor's internal resistance, temperature dependent:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     r<sub>e</sub>' = 26mV / I<sub>C</sub> = 0.026 / I<sub>C</sub>
                 </code>
 
                 <h3>Step 4: Calculate Collector Resistor for Desired Gain</h3>
                 <p><b>Without bypass (stable gain):</b></p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     A<sub>v</sub> = R<sub>C</sub> / (R<sub>E</sub> + r<sub>e</sub>')<br>
                     ∴ R<sub>C</sub> = A<sub>v</sub> × (R<sub>E</sub> + r<sub>e</sub>')
                 </code>
                 <p><b>With full bypass (maximum gain):</b></p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     A<sub>v</sub> = R<sub>C</sub> / r<sub>e</sub>'<br>
                     ∴ R<sub>C</sub> = A<sub>v</sub> × r<sub>e</sub>'
                 </code>
 
                 <h3>Step 5: Verify Operating Point</h3>
                 <p>Check that V<sub>C</sub> leaves room for the transistor to operate:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     V<sub>C</sub> = V<sub>CC</sub> - I<sub>C</sub> × R<sub>C</sub><br>
                     Requirement: V<sub>C</sub> > V<sub>E</sub> + 0.3V (active region)
                 </code>
 
                 <h3>Step 6: Calculate Bias Resistors</h3>
                 <p>Use the "stiff divider" rule - divider current should be ~10× base current:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     I<sub>B</sub> = I<sub>C</sub> / β<br>
                     I<sub>divider</sub> = 10 × I<sub>B</sub><br>
                     R<sub>total</sub> = V<sub>CC</sub> / I<sub>divider</sub><br>
@@ -189,7 +176,7 @@
                 </code>
 
                 <h3>Step 7: Calculate Input Impedance</h3>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     Z<sub>in(base)</sub> = β × (R<sub>E</sub> + r<sub>e</sub>') &nbsp;&nbsp;<i>[without bypass]</i><br>
                     Z<sub>in(base)</sub> = β × r<sub>e</sub>' &nbsp;&nbsp;<i>[with bypass]</i><br>
                     Z<sub>in</sub> = R<sub>1</sub> ∥ R<sub>2</sub> ∥ Z<sub>in(base)</sub>
@@ -197,28 +184,28 @@
 
                 <h3>Step 8: Calculate Coupling Capacitors</h3>
                 <p>Size for -3dB at the desired low frequency cutoff:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     C<sub>in</sub> = 1 / (2π × f<sub>low</sub> × Z<sub>in</sub>)<br>
                     C<sub>out</sub> = 1 / (2π × f<sub>low</sub> × R<sub>load</sub>)
                 </code>
 
                 <h3>Step 9: Calculate Bypass Capacitor (if used)</h3>
                 <p>Must have low impedance at lowest frequency of interest:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     X<sub>Ce</sub> << R<sub>E</sub> at f<sub>low</sub><br>
                     C<sub>E</sub> ≈ 10 / (2π × f<sub>low</sub> × R<sub>E</sub>)
                 </code>
 
                 <h3>Step 10: Calculate Effective Gain</h3>
                 <p>Account for loading at input and output:</p>
-                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                <code class="formula">
                     Input attenuation = Z<sub>in</sub> / (Z<sub>in</sub> + Z<sub>source</sub>)<br>
                     Output attenuation = R<sub>load</sub> / (R<sub>load</sub> + R<sub>C</sub>)<br>
                     Effective gain = A<sub>v</sub> × input atten × output atten
                 </code>
 
                 <h3>Key Relationships</h3>
-                <ul style="margin-top: 10px;">
+                <ul>
                     <li><b>Output impedance:</b> Z<sub>out</sub> ≈ R<sub>C</sub></li>
                     <li><b>Voltage swing:</b> Limited by V<sub>C</sub> − V<sub>E</sub> (down) and V<sub>CC</sub> − V<sub>C</sub> (up)</li>
                     <li><b>AC load line slope:</b> −1/(R<sub>C</sub> ∥ R<sub>load</sub>)</li>
