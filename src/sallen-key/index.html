@@ -38,6 +38,9 @@
         .component-table td:nth-child(2) {
             font-family: monospace;
         }
+        #response {
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -94,6 +97,9 @@
 
         <h2>Stages</h2>
         <div id="stages"></div>
+
+        <h2>Frequency Response</h2>
+        <div id="response"></div>
     </div>
 
     <script src="../common.js"></script>
@@ -210,6 +216,109 @@
             sch.label('Q=' + stage.Q.toFixed(2) + ' K=' + stage.K.toFixed(2), xOff + 200, 308, { anchor: 'middle' });
         }
 
+        // Calculate magnitude response of a single 2nd-order stage at frequency f
+        function stageMagnitude(stage, f) {
+            const w = f / stage.fcActual;  // Normalized frequency
+            const w2 = w * w;
+            const denom = Math.sqrt(Math.pow(1 - w2, 2) + Math.pow(w / stage.Q, 2));
+
+            if (stage.type === 'lowpass') {
+                return stage.K / denom;
+            } else {
+                return stage.K * w2 / denom;
+            }
+        }
+
+        // Calculate total filter magnitude response at frequency f
+        function filterMagnitude(stages, f) {
+            let mag = 1;
+            for (const stage of stages) {
+                mag *= stageMagnitude(stage, f);
+            }
+            return mag;
+        }
+
+        // Draw frequency response plot
+        function drawFrequencyResponse(stages) {
+            const width = 600;
+            const height = 300;
+            const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+            const plotW = width - margin.left - margin.right;
+            const plotH = height - margin.top - margin.bottom;
+
+            // Frequency range: 2 decades below to 2 decades above fc
+            const fc = stages[0].fcActual;
+            const fMin = fc / 100;
+            const fMax = fc * 100;
+
+            // dB range
+            const dbMin = -60;
+            const dbMax = 20;
+
+            // Generate response data points
+            const points = [];
+            const numPoints = 200;
+            for (let i = 0; i <= numPoints; i++) {
+                const logF = Math.log10(fMin) + (Math.log10(fMax) - Math.log10(fMin)) * i / numPoints;
+                const f = Math.pow(10, logF);
+                const mag = filterMagnitude(stages, f);
+                const db = 20 * Math.log10(mag);
+                points.push({ f, db: Math.max(dbMin, Math.min(dbMax, db)) });
+            }
+
+            // Coordinate transforms
+            const xScale = (f) => margin.left + plotW * (Math.log10(f) - Math.log10(fMin)) / (Math.log10(fMax) - Math.log10(fMin));
+            const yScale = (db) => margin.top + plotH * (dbMax - db) / (dbMax - dbMin);
+
+            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+
+            // Background
+            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
+
+            // Grid lines - vertical (frequency decades)
+            for (let decade = Math.ceil(Math.log10(fMin)); decade <= Math.floor(Math.log10(fMax)); decade++) {
+                const f = Math.pow(10, decade);
+                const x = xScale(f);
+                svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${margin.top + plotH}" stroke="#ddd" stroke-width="1"/>`;
+                svg += `<text x="${x}" y="${height - 5}" text-anchor="middle">${fmt(f, 'Hz')}</text>`;
+            }
+
+            // Grid lines - horizontal (dB)
+            for (let db = dbMin; db <= dbMax; db += 10) {
+                const y = yScale(db);
+                svg += `<line x1="${margin.left}" y1="${y}" x2="${margin.left + plotW}" y2="${y}" stroke="#ddd" stroke-width="1"/>`;
+                svg += `<text x="${margin.left - 5}" y="${y + 4}" text-anchor="end">${db}</text>`;
+            }
+
+            // -3dB line
+            const y3db = yScale(-3);
+            svg += `<line x1="${margin.left}" y1="${y3db}" x2="${margin.left + plotW}" y2="${y3db}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+
+            // Cutoff frequency marker
+            const xFc = xScale(fc);
+            svg += `<line x1="${xFc}" y1="${margin.top}" x2="${xFc}" y2="${margin.top + plotH}" stroke="#88f" stroke-width="1" stroke-dasharray="4,2"/>`;
+
+            // Response curve
+            let pathD = `M ${xScale(points[0].f)} ${yScale(points[0].db)}`;
+            for (let i = 1; i < points.length; i++) {
+                pathD += ` L ${xScale(points[i].f)} ${yScale(points[i].db)}`;
+            }
+            svg += `<path d="${pathD}" fill="none" stroke="#2266cc" stroke-width="2"/>`;
+
+            // Axis labels
+            svg += `<text x="${width / 2}" y="${height - 22}" text-anchor="middle">Frequency</text>`;
+            svg += `<text x="15" y="${height / 2}" text-anchor="middle" transform="rotate(-90, 15, ${height / 2})">Gain (dB)</text>`;
+
+            // Legend
+            svg += `<line x1="${margin.left + 10}" y1="${margin.top + 12}" x2="${margin.left + 30}" y2="${margin.top + 12}" stroke="#88f" stroke-dasharray="4,2"/>`;
+            svg += `<text x="${margin.left + 35}" y="${margin.top + 16}">fc = ${fmt(fc, 'Hz')}</text>`;
+            svg += `<line x1="${margin.left + 130}" y1="${margin.top + 12}" x2="${margin.left + 150}" y2="${margin.top + 12}" stroke="#f88" stroke-dasharray="4,2"/>`;
+            svg += `<text x="${margin.left + 155}" y="${margin.top + 16}">-3 dB</text>`;
+
+            svg += '</svg>';
+            return svg;
+        }
+
         // Draw all stages in a single horizontal schematic
         function drawAllStages(stages, vcc) {
             const stageWidth = 450;
@@ -317,6 +426,10 @@
             }
 
             stagesDiv.appendChild(tableDiv);
+
+            // Draw frequency response
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerHTML = drawFrequencyResponse(stages);
         }
 
         window.onload = calculate;
