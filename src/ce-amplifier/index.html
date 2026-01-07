@@ -8,52 +8,75 @@
         input[type="number"] {
             width: 80px;
         }
+        td[title] {
+            cursor: help;
+            border-bottom: 1px dotted #999;
+        }
+        .hint {
+            font-size: 0.85em;
+            color: #888;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
     <h1>CE Amplifier Calculator</h1>
+    <p style="max-width: 600px; color: #555;">
+        Design a common-emitter amplifier with voltage divider biasing.
+        This topology trades some gain for stable, predictable operation across transistor variations.
+    </p>
 
     <h2>Inputs</h2>
     <table>
         <tr>
-            <td>Vcc:</td>
+            <td title="Supply voltage for the amplifier">Vcc:</td>
             <td><input type="number" id="vcc" value="10" step="0.1" min="1"> V</td>
         </tr>
         <tr>
-            <td>Desired loaded gain:</td>
-            <td><input type="number" id="gain" value="10" step="1" min="1"> V/V</td>
+            <td title="Voltage gain of the transistor stage (Vout/Vin)">Desired gain (Av):</td>
+            <td><input type="number" id="gain" value="5" step="1" min="1"> V/V</td>
         </tr>
         <tr>
-            <td>Input (peak):</td>
+            <td title="Peak amplitude of your input signal (used to check for clipping)">Input (peak):</td>
             <td><input type="number" id="vin" value="100" step="10" min="1"> mV</td>
         </tr>
         <tr>
-            <td>Source impedance:</td>
+            <td title="Output impedance of whatever drives this amplifier. Higher values reduce effective gain.">Source impedance:</td>
             <td><input type="number" id="zsource" value="0" step="100" min="0"> Ω</td>
         </tr>
         <tr>
-            <td>Low frequency:</td>
+            <td title="Lowest frequency you need to amplify. Sets the coupling capacitor sizes.">Low frequency (-3dB):</td>
             <td><input type="number" id="fLow" value="20" step="1" min="1"> Hz</td>
         </tr>
         <tr>
-            <td>Load:</td>
-            <td><input type="number" id="rload" value="10000" step="1000" min="1000"> Ω</td>
+            <td title="Resistance of whatever this amplifier drives. Lower values reduce effective gain. Leave empty for open circuit.">Load (optional):</td>
+            <td><input type="number" id="rload" value="" placeholder="∞" step="1000" min="100"> Ω</td>
         </tr>
         <tr>
-            <td>Collector current (Ic):</td>
+            <td title="Bypassing Re with a capacitor increases AC gain but makes it less predictable and more dependent on transistor parameters.">Bypass Re:</td>
+            <td>
+                <select id="bypassMode">
+                    <option value="none">No bypass (stable gain)</option>
+                    <option value="full">Full bypass (max gain)</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td title="DC current through the collector. Higher values give more bandwidth but use more power.">Collector current (Ic):</td>
             <td><input type="number" id="ic" value="1" step="0.5" min="0.1" max="20"> mA</td>
         </tr>
         <tr>
-            <td>β (hFE):</td>
+            <td title="Current gain of your transistor. Find this in the datasheet. Typical values: 100-300.">β (hFE):</td>
             <td><input type="number" id="beta" value="100" step="10" min="20"></td>
         </tr>
         <tr>
-            <td>fT (transistor):</td>
+            <td title="Transition frequency - where the transistor's current gain drops to 1. Limits high-frequency response.">fT (transistor):</td>
             <td><input type="number" id="ft" value="150" step="50" min="10"> MHz</td>
         </tr>
     </table>
-    <br>
+    <p class="hint">Hover over labels for explanations.</p>
     <button onclick="calculate()">Calculate</button>
+    <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
 
     <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
 
@@ -62,31 +85,147 @@
         <div id="schematic"></div>
 
         <h2>Calculated Values</h2>
+        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+            Component values rounded to standard E24 series. The bias resistors (R1, R2) set the DC operating point.
+        </p>
         <table>
-            <tr><td>R1 (upper bias):</td><td id="r1"></td></tr>
-            <tr><td>R2 (lower bias):</td><td id="r2"></td></tr>
-            <tr><td>Rc (collector):</td><td id="rc"></td></tr>
-            <tr><td>Re1 (unbypassed):</td><td id="re1"></td></tr>
-            <tr><td>Re2 (bypassed):</td><td id="re2"></td></tr>
-            <tr><td>Cin (input):</td><td id="cin"></td></tr>
-            <tr><td>Cout (output):</td><td id="cout"></td></tr>
-            <tr><td>Ce (bypass):</td><td id="ce"></td></tr>
+            <tr><td title="Upper bias resistor, sets base voltage together with R2">R1 (upper bias):</td><td id="r1"></td></tr>
+            <tr><td title="Lower bias resistor, forms voltage divider with R1">R2 (lower bias):</td><td id="r2"></td></tr>
+            <tr><td title="Collector resistor, converts collector current changes to voltage changes">Rc (collector):</td><td id="rc"></td></tr>
+            <tr><td title="Emitter resistor, provides negative feedback for stability. Gain ≈ Rc/Re">Re (emitter):</td><td id="re"></td></tr>
+            <tr><td title="Input coupling capacitor, blocks DC while passing AC signal">Cin (input):</td><td id="cin"></td></tr>
+            <tr><td title="Output coupling capacitor, blocks DC bias from reaching the load">Cout (output):</td><td id="cout"></td></tr>
+            <tr><td title="Emitter bypass capacitor, shorts Re at AC frequencies to increase gain">Ce (bypass):</td><td id="ce"></td></tr>
         </table>
 
-        <h2>Gain Breakdown</h2>
+        <h2>Gain Analysis</h2>
+        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+            The gain you actually get depends on source and load impedances. The transistor provides its gain,
+            but some signal is lost at the input (voltage divider with source impedance) and output (voltage divider with load).
+        </p>
         <table>
-            <tr><td>Input impedance (Zin):</td><td id="zin"></td></tr>
-            <tr><td>Input attenuation:</td><td id="inputAtten"></td></tr>
-            <tr><td>Transistor gain (Rc/Re1):</td><td id="transGain"></td></tr>
-            <tr><td>Output attenuation:</td><td id="outputAtten"></td></tr>
-            <tr><td><b>Loaded gain (total):</b></td><td id="loadedGain"></td></tr>
+            <tr><td title="How much resistance the amplifier presents to the signal source. Higher is generally better.">Input impedance (Zin):</td><td id="zin"></td></tr>
+            <tr><td title="How much resistance the amplifier presents to its load. Lower means it can drive heavier loads.">Output impedance (Zout):</td><td id="zout"></td></tr>
+            <tr><td title="The gain of the transistor stage itself: Rc / (Re + re')">Transistor gain (Av):</td><td id="transGain"></td></tr>
+            <tr><td title="Signal loss at input due to source impedance. Zin / (Zin + Zsource)">Input attenuation:</td><td id="inputAtten"></td></tr>
+            <tr><td title="Signal loss at output due to load. Rload / (Rload + Zout)">Output attenuation:</td><td id="outputAtten"></td></tr>
+            <tr><td title="What you actually measure: transistor gain × input attenuation × output attenuation"><b>Effective gain:</b></td><td id="effectiveGain"></td></tr>
             <tr><td>Expected output:</td><td id="expectedOut"></td></tr>
         </table>
 
-        <p id="note" style="color: gray;"></p>
+        <p id="note" style="color: #c60;"></p>
+
+        <h2>Input / Output Waveforms</h2>
+        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+            The CE amplifier inverts the signal (180° phase shift) and amplifies it.
+            If the output exceeds the available swing, it clips (flattens) at the peaks.
+        </p>
+        <div id="waveforms"></div>
+
+        <h2>Load Lines</h2>
+        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+            The DC load line (solid) shows the operating path set by Rc + Re.
+            When a load is connected, the AC load line (dashed) is steeper because AC sees Rc || Rload.
+            The Q-point sits on both lines - DC sets the bias, AC determines the signal swing.
+        </p>
+        <div id="loadLine"></div>
 
         <h2>Frequency Response</h2>
+        <p style="color: #555; font-size: 0.9em; margin-bottom: 10px;">
+            Low frequencies are limited by coupling capacitors (Cin, Cout) and bypass capacitor (Ce).
+            High frequencies are limited by the transistor's internal capacitances and β rolloff.
+        </p>
         <div id="freqResponse"></div>
+
+        <h2>Design Formulas</h2>
+        <details>
+            <summary style="cursor: pointer; color: #2266cc; font-weight: bold;">Click to show step-by-step design procedure</summary>
+            <div style="margin-top: 15px; padding: 15px; background: #f8f8f8; border-radius: 5px; font-size: 0.9em;">
+                <h3 style="margin-top: 0;">Step 1: Set the DC Operating Point</h3>
+                <p>Choose emitter voltage for thermal stability (typically 10% of Vcc or 1V minimum):</p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    V<sub>E</sub> = max(0.1 × V<sub>CC</sub>, 1V)<br>
+                    V<sub>B</sub> = V<sub>E</sub> + 0.7V
+                </code>
+
+                <h3>Step 2: Calculate Emitter Resistor</h3>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    R<sub>E</sub> = V<sub>E</sub> / I<sub>C</sub>
+                </code>
+
+                <h3>Step 3: Calculate Intrinsic Emitter Resistance</h3>
+                <p>This is the transistor's internal resistance, temperature dependent:</p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    r<sub>e</sub>' = 26mV / I<sub>C</sub> = 0.026 / I<sub>C</sub>
+                </code>
+
+                <h3>Step 4: Calculate Collector Resistor for Desired Gain</h3>
+                <p><b>Without bypass (stable gain):</b></p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    A<sub>v</sub> = R<sub>C</sub> / (R<sub>E</sub> + r<sub>e</sub>')<br>
+                    ∴ R<sub>C</sub> = A<sub>v</sub> × (R<sub>E</sub> + r<sub>e</sub>')
+                </code>
+                <p><b>With full bypass (maximum gain):</b></p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    A<sub>v</sub> = R<sub>C</sub> / r<sub>e</sub>'<br>
+                    ∴ R<sub>C</sub> = A<sub>v</sub> × r<sub>e</sub>'
+                </code>
+
+                <h3>Step 5: Verify Operating Point</h3>
+                <p>Check that V<sub>C</sub> leaves room for the transistor to operate:</p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    V<sub>C</sub> = V<sub>CC</sub> - I<sub>C</sub> × R<sub>C</sub><br>
+                    Requirement: V<sub>C</sub> > V<sub>E</sub> + 0.3V (active region)
+                </code>
+
+                <h3>Step 6: Calculate Bias Resistors</h3>
+                <p>Use the "stiff divider" rule - divider current should be ~10× base current:</p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    I<sub>B</sub> = I<sub>C</sub> / β<br>
+                    I<sub>divider</sub> = 10 × I<sub>B</sub><br>
+                    R<sub>total</sub> = V<sub>CC</sub> / I<sub>divider</sub><br>
+                    R<sub>2</sub> = (V<sub>B</sub> / V<sub>CC</sub>) × R<sub>total</sub><br>
+                    R<sub>1</sub> = R<sub>total</sub> - R<sub>2</sub>
+                </code>
+
+                <h3>Step 7: Calculate Input Impedance</h3>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    Z<sub>in(base)</sub> = β × (R<sub>E</sub> + r<sub>e</sub>') &nbsp;&nbsp;<i>[without bypass]</i><br>
+                    Z<sub>in(base)</sub> = β × r<sub>e</sub>' &nbsp;&nbsp;<i>[with bypass]</i><br>
+                    Z<sub>in</sub> = R<sub>1</sub> ∥ R<sub>2</sub> ∥ Z<sub>in(base)</sub>
+                </code>
+
+                <h3>Step 8: Calculate Coupling Capacitors</h3>
+                <p>Size for -3dB at the desired low frequency cutoff:</p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    C<sub>in</sub> = 1 / (2π × f<sub>low</sub> × Z<sub>in</sub>)<br>
+                    C<sub>out</sub> = 1 / (2π × f<sub>low</sub> × R<sub>load</sub>)
+                </code>
+
+                <h3>Step 9: Calculate Bypass Capacitor (if used)</h3>
+                <p>Must have low impedance at lowest frequency of interest:</p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    X<sub>Ce</sub> << R<sub>E</sub> at f<sub>low</sub><br>
+                    C<sub>E</sub> ≈ 10 / (2π × f<sub>low</sub> × R<sub>E</sub>)
+                </code>
+
+                <h3>Step 10: Calculate Effective Gain</h3>
+                <p>Account for loading at input and output:</p>
+                <code style="display: block; background: #fff; padding: 8px; margin: 5px 0;">
+                    Input attenuation = Z<sub>in</sub> / (Z<sub>in</sub> + Z<sub>source</sub>)<br>
+                    Output attenuation = R<sub>load</sub> / (R<sub>load</sub> + R<sub>C</sub>)<br>
+                    Effective gain = A<sub>v</sub> × input atten × output atten
+                </code>
+
+                <h3>Key Relationships</h3>
+                <ul style="margin-top: 10px;">
+                    <li><b>Output impedance:</b> Z<sub>out</sub> ≈ R<sub>C</sub></li>
+                    <li><b>Voltage swing:</b> Limited by V<sub>C</sub> − V<sub>E</sub> (down) and V<sub>CC</sub> − V<sub>C</sub> (up)</li>
+                    <li><b>AC load line slope:</b> −1/(R<sub>C</sub> ∥ R<sub>load</sub>)</li>
+                    <li><b>DC load line slope:</b> −1/(R<sub>C</sub> + R<sub>E</sub>)</li>
+                </ul>
+            </div>
+        </details>
     </div>
 
     <script src="../common.js"></script>
@@ -94,7 +233,9 @@
     <script src="../graph.js"></script>
     <script>
         function drawSchematic(vals) {
-            const sch = new Schematic(450, 450);
+            const sch = new Schematic(450, 420);
+            const hasBypass = vals.ce !== null;
+            const hasLoad = vals.rload !== null;
 
             // Transistor at center
             sch.place('npn', 'Q1', 200, 160);
@@ -102,12 +243,13 @@
             // Rc (collector resistor)
             sch.place('resistor-v', 'Rc', 225, 75, { label: vals.rc });
 
-            // Re1 and Re2 (emitter resistors)
-            sch.place('resistor-v', 'Re1', 225, 230, { label: vals.re1 });
-            sch.place('resistor-v', 'Re2', 225, 305, { label: vals.re2, labelPos: 'left' });
+            // Re (single emitter resistor) - label on left if bypass cap present
+            sch.place('resistor-v', 'Re', 225, 230, { label: vals.re, labelPos: hasBypass ? 'left' : 'right' });
 
-            // Ce bypass cap
-            sch.place('capacitor-v', 'Ce', 280, 290, { label: vals.ce });
+            // Ce bypass cap (only if bypass mode)
+            if (hasBypass) {
+                sch.place('capacitor-v', 'Ce', 280, 230, { label: vals.ce });
+            }
 
             // Bias resistors
             sch.place('resistor-v', 'R1', 130, 80, { label: vals.r1 });
@@ -119,13 +261,15 @@
             // Cout output cap
             sch.place('capacitor-h', 'Cout', 290, 110, { label: vals.cout });
 
-            // Load resistor (dashed - external)
-            sch.place('resistor-v', 'Rload', 350, 165, { label: vals.rload, dashed: true });
+            // Load resistor (dashed - external, only if specified)
+            if (hasLoad) {
+                sch.place('resistor-v', 'Rload', 350, 165, { label: vals.rload, dashed: true });
+                sch.place('ground', 'GND3', 350, 210, { dashed: true });
+            }
 
             // Grounds
             sch.place('ground', 'GND1', 130, 240);
-            sch.place('ground', 'GND2', 225, 350);
-            sch.place('ground', 'GND3', 350, 210, { dashed: true });
+            sch.place('ground', 'GND2', 225, 290);
 
             // --- Wiring ---
 
@@ -143,27 +287,29 @@
             sch.wire({ x: 225, y: 110 }, { x: 225, y: 135 });
             sch.wire({ x: 225, y: 110 }, { x: 286, y: 110 });
             sch.wire('Cout.b', { x: 320, y: 110 });
-            sch.wire({ x: 320, y: 110 }, { x: 350, y: 110 });
-            sch.node(350, 110);
-            sch.wire({ x: 350, y: 110 }, 'Rload.a', { dashed: true });
-            sch.wire('Rload.b', 'GND3.a', { dashed: true });
-            sch.label('Out', 360, 114);
+
+            if (hasLoad) {
+                sch.wire({ x: 320, y: 110 }, { x: 350, y: 110 });
+                sch.node(350, 110);
+                sch.wire({ x: 350, y: 110 }, 'Rload.a', { dashed: true });
+                sch.wire('Rload.b', 'GND3.a', { dashed: true });
+            }
+            sch.label('Out', hasLoad ? 360 : 330, 114);
 
             // Emitter wiring
             sch.wire('Q1.emitter', { x: 225, y: 195 });
-            sch.wire({ x: 225, y: 195 }, 'Re1.a');
-            sch.wire('Re1.b', { x: 225, y: 270 });
-            sch.node(225, 270);
-            sch.wire({ x: 225, y: 270 }, 'Re2.a');
-            sch.wire('Re2.b', { x: 225, y: 340 });
-            sch.node(225, 340);
-            sch.wire({ x: 225, y: 340 }, 'GND2.a');
+            sch.wire({ x: 225, y: 195 }, 'Re.a');
+            sch.wire('Re.b', { x: 225, y: 275 });
+            sch.node(225, 275);
+            sch.wire({ x: 225, y: 275 }, 'GND2.a');
 
-            // Ce bypass parallel to Re2
-            sch.wire({ x: 225, y: 270 }, { x: 280, y: 270 });
-            sch.wire({ x: 280, y: 270 }, 'Ce.a');
-            sch.wire('Ce.b', { x: 280, y: 340 });
-            sch.wire({ x: 280, y: 340 }, { x: 225, y: 340 });
+            // Ce bypass parallel to Re (if present)
+            if (hasBypass) {
+                sch.wire({ x: 225, y: 195 }, { x: 280, y: 195 });
+                sch.wire({ x: 280, y: 195 }, 'Ce.a');
+                sch.wire('Ce.b', { x: 280, y: 275 });
+                sch.wire({ x: 280, y: 275 }, { x: 225, y: 275 });
+            }
 
             // Bias network
             sch.wire('R1.b', { x: 130, y: 160 });
@@ -178,61 +324,66 @@
             sch.wire({ x: 130, y: 160 }, 'Q1.base');
 
             // Info display
-            sch.label('Operating Point:', 20, 370, { bold: true });
-            sch.label('Vb = ' + vals.vb, 20, 390);
-            sch.label('Ve = ' + vals.ve, 20, 410);
-            sch.label('Vc = ' + vals.vc, 20, 430);
-            sch.label('Ic = ' + vals.ic, 150, 390);
-            sch.label('Swing = ' + vals.swing, 150, 410);
+            sch.label('Operating Point:', 20, 330, { bold: true });
+            sch.label('Vb = ' + vals.vb, 20, 350);
+            sch.label('Ve = ' + vals.ve, 20, 370);
+            sch.label('Vc = ' + vals.vc, 20, 390);
+            sch.label('Ic = ' + vals.ic, 130, 350);
+            sch.label('Swing = ' + vals.swing, 130, 370);
 
-            sch.label('Gain:', 280, 370, { bold: true });
-            sch.label('Trans: ' + vals.transGain, 280, 390);
-            sch.label('Loaded: ' + vals.loadedGain, 280, 410);
+            sch.label('Gain:', 260, 330, { bold: true });
+            sch.label('Transistor: ' + vals.transGain, 260, 350);
+            sch.label('Effective: ' + vals.effectiveGain, 260, 370);
 
             return sch.toSVG();
         }
 
         // Calculate CE amplifier frequency response
         function drawFrequencyResponse(params) {
-            const { zin, zsource, rc, re1, re2, reIntrinsic, rload, cin, cout, ce, beta, fLow, fT } = params;
+            const { zin, zsource, rc, re, reEffective, reIntrinsic, rload, cin, cout, ce, beta, fLow, fT, bypassMode } = params;
 
             // Frequency range: 1Hz to 100MHz
             const fMin = 1;
             const fMax = 100000000;
 
+            // Handle infinite load and ensure positive values
+            const rloadEff = (isFinite(rload) && rload > 0) ? rload : 1e9;
+            const zinEff = zin > 0 ? zin : 1000;
+
             // Corner frequencies for each high-pass stage
-            const fcIn = 1 / (2 * Math.PI * cin * (zsource + zin));
-            const fcOut = 1 / (2 * Math.PI * cout * (rc + rload));
-            const fcBypass = ce > 0 ? 1 / (2 * Math.PI * ce * re2) : 0;
+            const fcIn = 1 / (2 * Math.PI * cin * (zsource + zinEff));
+            const fcOut = 1 / (2 * Math.PI * cout * (rc + rloadEff));
+            const fcBypass = (bypassMode === 'full' && ce > 0 && re > 0) ? 1 / (2 * Math.PI * ce * re) : 0;
 
             // High-frequency limitations
             // fβ is where β starts rolling off
             const fBeta = fT / beta;
 
             // Effective load for gain calculation
-            const rcParallel = parallel(rc, rload);
+            const rcParallel = parallel(rc, rloadEff);
 
             // Miller effect: Cbc (typ ~2pF) multiplied by voltage gain
             // Creates dominant high-frequency pole
             const Cbc = 2e-12; // Typical collector-base capacitance
-            const Av = rcParallel / (re1 + reIntrinsic); // Voltage gain
+            const Av = rcParallel / (reEffective + reIntrinsic); // Voltage gain
             const Cmiller = Cbc * (1 + Av);
 
             // High-frequency pole from Miller + source impedance
-            const rSource = parallel(zsource, zin);
+            const rSource = zsource > 0 ? parallel(zsource, zinEff) : zinEff;
             const fHmiller = 1 / (2 * Math.PI * rSource * Cmiller);
 
             // Combined high-frequency pole (use dominant one)
             const fH = Math.min(fBeta, fHmiller);
 
             // Input and output attenuation (constant with frequency)
-            const inputAtten = zin / (zin + zsource);
-            const outputAtten = rload / (rload + rc);
+            const inputAtten = zsource > 0 ? zinEff / (zinEff + zsource) : 1;
+            const outputAtten = isFinite(rload) ? rload / (rload + rc) : 1;
 
-            // Gain at mid-band (Ce effective, Re2 bypassed)
-            const gainMB = rcParallel / (re1 + reIntrinsic);
-            // Gain at low frequency (Ce ineffective, Re2 in circuit)
-            const gainLF = rcParallel / (re1 + re2 + reIntrinsic);
+            // Gain values
+            // Mid-band gain (with bypass effective if used)
+            const gainMB = rcParallel / (reEffective + reIntrinsic);
+            // Low frequency gain (bypass not effective - full Re in circuit)
+            const gainLF = bypassMode === 'full' ? rcParallel / (re + reIntrinsic) : gainMB;
 
             // Magnitude function
             function magnitude(f) {
@@ -244,16 +395,18 @@
                 // Low-pass response from transistor HF limitations
                 const lpHF = fH / Math.sqrt(f * f + fH * fH);
 
-                // Gain transition due to Ce bypass
+                // Gain transition due to Ce bypass (only in full bypass mode)
                 let gain;
-                if (ce > 0 && fcBypass > 0) {
+                if (bypassMode === 'full' && fcBypass > 0) {
                     const bypassFactor = f / Math.sqrt(f * f + fcBypass * fcBypass);
                     gain = gainLF + (gainMB - gainLF) * bypassFactor;
                 } else {
                     gain = gainMB;
                 }
 
-                return inputAtten * gain * outputAtten * hpIn * hpOut * lpHF;
+                const result = inputAtten * gain * outputAtten * hpIn * hpOut * lpHF;
+                // Ensure we never return 0 or negative (would cause -Infinity in dB)
+                return Math.max(result, 1e-10);
             }
 
             // Find mid-band gain for normalization
@@ -269,15 +422,232 @@
             });
 
             // Generate response curve (normalized to mid-band = 0dB)
-            const curve = generateResponseCurve(fMin, fMax, f => magnitude(f) / midBandGain);
+            const normFactor = midBandGain > 0 ? midBandGain : 1;
+            const curve = generateResponseCurve(fMin, fMax, f => magnitude(f) / normFactor);
             graph.addCurve(curve, { label: 'Response' });
 
             // Add reference lines
             graph.addHLine(-3, { color: '#f88', label: '-3 dB' });
             graph.addVLine(fLow, { color: '#88f', label: 'fL' });
-            graph.addVLine(fH, { color: '#8a8', label: 'fH ≈ ' + fmt(fH, 'Hz') });
+            if (isFinite(fH) && fH > 0) {
+                graph.addVLine(fH, { color: '#8a8', label: 'fH ≈ ' + fmt(fH, 'Hz') });
+            }
 
             return graph.toSVG();
+        }
+
+        // Draw input/output waveforms
+        function drawWaveforms(params) {
+            const { vinPeak, voutPeak, maxSwing, gain } = params;
+
+            const width = 500;
+            const height = 200;
+            const margin = { top: 30, right: 20, bottom: 30, left: 50 };
+            const plotW = width - margin.left - margin.right;
+            const plotH = height - margin.top - margin.bottom;
+
+            // Clipping threshold (peak voltage, not p-p)
+            const clipLevel = maxSwing / 2;
+            const isClipping = voutPeak > clipLevel;
+
+            // Scale: show 2 cycles, normalize to largest signal (fill the graph)
+            const maxV = Math.max(vinPeak, isClipping ? clipLevel : voutPeak) * 1.05;
+            const cycles = 2;
+            const numPoints = 200;
+
+            // Scale functions
+            const xScale = (t) => margin.left + (t / cycles) * plotW;
+            const yScale = (v) => margin.top + plotH / 2 - (v / maxV) * (plotH / 2);
+
+            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+
+            // Background
+            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
+
+            // Zero line
+            svg += `<line x1="${margin.left}" y1="${yScale(0)}" x2="${margin.left + plotW}" y2="${yScale(0)}" stroke="#ccc" stroke-width="1"/>`;
+
+            // Clip level indicators (if relevant)
+            if (isClipping) {
+                svg += `<line x1="${margin.left}" y1="${yScale(clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
+                svg += `<line x1="${margin.left}" y1="${yScale(-clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(-clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
+                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
+                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(-clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
+            }
+
+            // Generate waveform paths
+            let inputPath = '';
+            let outputPath = '';
+
+            for (let i = 0; i <= numPoints; i++) {
+                const t = (i / numPoints) * cycles;
+                const angle = t * 2 * Math.PI;
+
+                // Input: simple sine
+                const vin = vinPeak * Math.sin(angle);
+
+                // Output: inverted and amplified, with clipping
+                let vout = -voutPeak * Math.sin(angle); // Inverted
+                if (isClipping) {
+                    vout = Math.max(-clipLevel, Math.min(clipLevel, vout));
+                }
+
+                const x = xScale(t);
+                const yIn = yScale(vin);
+                const yOut = yScale(vout);
+
+                if (i === 0) {
+                    inputPath = `M ${x} ${yIn}`;
+                    outputPath = `M ${x} ${yOut}`;
+                } else {
+                    inputPath += ` L ${x} ${yIn}`;
+                    outputPath += ` L ${x} ${yOut}`;
+                }
+            }
+
+            // Draw input waveform
+            svg += `<path d="${inputPath}" fill="none" stroke="#88f" stroke-width="2"/>`;
+
+            // Draw output waveform
+            svg += `<path d="${outputPath}" fill="none" stroke="#c33" stroke-width="2"/>`;
+
+            // Y-axis labels
+            svg += `<text x="${margin.left - 5}" y="${yScale(maxV * 0.8) + 4}" text-anchor="end" font-size="10">+</text>`;
+            svg += `<text x="${margin.left - 5}" y="${yScale(-maxV * 0.8) + 4}" text-anchor="end" font-size="10">−</text>`;
+            svg += `<text x="${margin.left - 5}" y="${yScale(0) + 4}" text-anchor="end" font-size="10">0</text>`;
+
+            // Legend
+            svg += `<line x1="${margin.left + 10}" y1="${margin.top - 15}" x2="${margin.left + 30}" y2="${margin.top - 15}" stroke="#88f" stroke-width="2"/>`;
+            svg += `<text x="${margin.left + 35}" y="${margin.top - 11}" font-size="10">Input (${(vinPeak * 1000).toFixed(0)}mV peak)</text>`;
+
+            svg += `<line x1="${margin.left + 180}" y1="${margin.top - 15}" x2="${margin.left + 200}" y2="${margin.top - 15}" stroke="#c33" stroke-width="2"/>`;
+            svg += `<text x="${margin.left + 205}" y="${margin.top - 11}" font-size="10">Output (${(Math.min(voutPeak, clipLevel) * 1000).toFixed(0)}mV peak${isClipping ? ', clipped' : ''})</text>`;
+
+            // Phase inversion note
+            svg += `<text x="${width / 2}" y="${height - 5}" text-anchor="middle" fill="#666" font-size="10">180° phase inversion</text>`;
+
+            svg += '</svg>';
+            return svg;
+        }
+
+        // Draw DC load line with Q-point and optional AC load line
+        function drawLoadLine(params) {
+            const { vcc, rc, re, ic, vce, veMin, rload } = params;
+
+            const width = 500;
+            const height = 300;
+            const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+            const plotW = width - margin.left - margin.right;
+            const plotH = height - margin.top - margin.bottom;
+
+            // DC Load line endpoints
+            // At Ic = 0: Vce = Vcc (cutoff)
+            // At Vce = 0: Ic = Vcc / (Rc + Re) (saturation)
+            const icSat = vcc / (rc + re); // mA
+            const vceCutoff = vcc;
+
+            // AC load line (only if there's a load resistor)
+            // AC load = Rc || Rload (in kΩ for mA calculations)
+            const hasAcLoad = rload && isFinite(rload) && rload > 0;
+            const rac = hasAcLoad ? (rc * rload) / (rc + rload) : rc; // Rc || Rload in kΩ
+
+            // AC load line passes through Q-point with slope -1/Rac
+            // Ic = ic + (vce - Vce) / Rac
+            const acIcAtVce0 = ic + vce / rac; // Ic intercept when Vce = 0
+            const acVceAtIc0 = vce + ic * rac; // Vce intercept when Ic = 0
+
+            // Axis ranges (add some padding, account for AC load line)
+            const vceMax = Math.max(vceCutoff, acVceAtIc0) * 1.1;
+            const icMax = Math.max(icSat, acIcAtVce0) * 1.1;
+
+            // Scale functions
+            const xScale = (v) => margin.left + (v / vceMax) * plotW;
+            const yScale = (i) => margin.top + plotH - (i / icMax) * plotH;
+
+            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+
+            // Background
+            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
+
+            // Grid lines
+            const vceStep = Math.ceil(vceMax / 5);
+            for (let v = 0; v <= vceMax; v += vceStep) {
+                const x = xScale(v);
+                svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${margin.top + plotH}" stroke="#ddd"/>`;
+                svg += `<text x="${x}" y="${height - 25}" text-anchor="middle">${v.toFixed(0)}</text>`;
+            }
+            const icStep = Math.ceil(icMax * 10) / 50; // Nice steps in mA
+            for (let i = 0; i <= icMax; i += icStep) {
+                const y = yScale(i);
+                svg += `<line x1="${margin.left}" y1="${y}" x2="${margin.left + plotW}" y2="${y}" stroke="#ddd"/>`;
+                svg += `<text x="${margin.left - 5}" y="${y + 4}" text-anchor="end">${i.toFixed(1)}</text>`;
+            }
+
+            // Axis labels
+            svg += `<text x="${width / 2}" y="${height - 5}" text-anchor="middle">Vce (V)</text>`;
+            svg += `<text x="15" y="${height / 2}" text-anchor="middle" transform="rotate(-90, 15, ${height / 2})">Ic (mA)</text>`;
+
+            // Saturation region (Vce < ~0.3V)
+            const vcesat = 0.3;
+            svg += `<rect x="${margin.left}" y="${margin.top}" width="${xScale(vcesat) - margin.left}" height="${plotH}" fill="#fee" opacity="0.5"/>`;
+            svg += `<text x="${xScale(vcesat/2)}" y="${margin.top + 15}" text-anchor="middle" fill="#c66" font-size="9">Saturation</text>`;
+
+            // DC Load line
+            svg += `<line x1="${xScale(0)}" y1="${yScale(icSat)}" x2="${xScale(vceCutoff)}" y2="${yScale(0)}" stroke="#2266cc" stroke-width="2"/>`;
+            svg += `<text x="${xScale(vceCutoff * 0.7)}" y="${yScale(icSat * 0.3) - 5}" fill="#2266cc" font-size="10">DC Load Line</text>`;
+
+            // AC Load line (if there's a load - steeper slope through Q-point)
+            if (hasAcLoad) {
+                // Clamp to visible area
+                const acX1 = Math.max(0, 0);
+                const acY1 = Math.min(acIcAtVce0, icMax);
+                const acX2 = Math.min(acVceAtIc0, vceMax);
+                const acY2 = Math.max(0, 0);
+
+                svg += `<line x1="${xScale(acX1)}" y1="${yScale(acY1)}" x2="${xScale(acX2)}" y2="${yScale(acY2)}" stroke="#e80" stroke-width="2" stroke-dasharray="6,3"/>`;
+                svg += `<text x="${xScale(acVceAtIc0 * 0.8)}" y="${yScale(acIcAtVce0 * 0.15) + 12}" fill="#e80" font-size="10">AC Load Line</text>`;
+            }
+
+            // Label DC load line endpoints
+            svg += `<text x="${xScale(vceCutoff) + 5}" y="${yScale(0) + 4}" fill="#2266cc" font-size="10">Cutoff</text>`;
+
+            // Q-point
+            const qX = xScale(vce);
+            const qY = yScale(ic);
+            svg += `<circle cx="${qX}" cy="${qY}" r="6" fill="#c33" stroke="#fff" stroke-width="2"/>`;
+            svg += `<text x="${qX + 10}" y="${qY - 10}" fill="#c33" font-weight="bold">Q-point</text>`;
+            svg += `<text x="${qX + 10}" y="${qY + 5}" fill="#c33" font-size="10">(${vce.toFixed(1)}V, ${ic.toFixed(2)}mA)</text>`;
+
+            // Show swing limits with dashed lines
+            // Vce can't go below Vce_sat (~0.3V) or above Vcc - Ve
+            const vceSat = 0.3;
+            const swingDown = vce - vceSat;
+            const swingUp = (vcc - veMin) - vce; // Max Vce at cutoff is approximately Vcc - Ve
+            const swing = Math.min(swingDown, swingUp);
+
+            if (swing > 0) {
+                // Swing range markers
+                const vceSwingLow = vce - swing;
+                const vceSwingHigh = vce + swing;
+
+                // Calculate Ic at swing limits (on the load line)
+                // ΔIc = ΔVce / (Rc + Re), with Rc+Re in kΩ gives ΔIc in mA
+                const icSwingLow = ic + swing / (rc + re); // Ic increases as Vce decreases
+                const icSwingHigh = ic - swing / (rc + re);
+
+                // Draw swing envelope
+                svg += `<line x1="${xScale(vceSwingLow)}" y1="${margin.top}" x2="${xScale(vceSwingLow)}" y2="${margin.top + plotH}" stroke="#3a3" stroke-dasharray="4,2"/>`;
+                svg += `<line x1="${xScale(vceSwingHigh)}" y1="${margin.top}" x2="${xScale(vceSwingHigh)}" y2="${margin.top + plotH}" stroke="#3a3" stroke-dasharray="4,2"/>`;
+
+                // Swing annotation
+                svg += `<text x="${xScale(vce)}" y="${margin.top + plotH - 10}" text-anchor="middle" fill="#3a3" font-size="10">← Swing: ${(swing * 2).toFixed(1)}V p-p →</text>`;
+            }
+
+            // Saturation limit line
+            svg += `<line x1="${xScale(vceSat)}" y1="${margin.top}" x2="${xScale(vceSat)}" y2="${margin.top + plotH}" stroke="#c66" stroke-dasharray="2,2"/>`;
+
+            svg += '</svg>';
+            return svg;
         }
 
         function calculate() {
@@ -286,119 +656,106 @@
             const vin = parseFloat(document.getElementById('vin').value) / 1000;
             const zsource = parseFloat(document.getElementById('zsource').value);
             const fLow = parseFloat(document.getElementById('fLow').value);
-            const rload = parseFloat(document.getElementById('rload').value);
+            const rloadInput = document.getElementById('rload').value;
+            const rload = rloadInput ? parseFloat(rloadInput) : Infinity;
+            const bypassMode = document.getElementById('bypassMode').value;
             const ic = parseFloat(document.getElementById('ic').value) / 1000; // mA to A
             const beta = parseFloat(document.getElementById('beta').value);
             const fT = parseFloat(document.getElementById('ft').value) * 1e6; // MHz to Hz
 
+            // Biasing: set Ve for stability, calculate operating point
             const ve = Math.max(vcc * 0.1, 1.0);
             const vb = ve + 0.7;
-            const vcMin = ve + 0.3;
-            const vc = vcMin + (vcc - vcMin) / 2;
-
-            const reTotal = ve / ic;
-            const rc = (vcc - vc) / ic;
             const reIntrinsic = 0.026 / ic;
-            
-            // First pass: calculate bias resistors
+
+            // Re is fixed by biasing
+            const re = ve / ic;
+
+            // Calculate Rc to achieve desired gain
+            // Av = Rc / (Re_effective + re')
+            // For unbypassed: Re_effective = Re
+            // For bypassed: Re_effective = 0 (only re' remains)
+            let rc, reEffective;
+            if (bypassMode === 'full') {
+                // Full bypass: gain is Rc/re', solve for Rc
+                rc = targetGain * reIntrinsic;
+                reEffective = 0;
+            } else {
+                // No bypass: gain is Rc/(Re + re'), solve for Rc
+                rc = targetGain * (re + reIntrinsic);
+                reEffective = re;
+            }
+
+            // Check if Rc is feasible
+            const vc = vcc - ic * rc;
+            const vcMin = ve + 0.3; // Minimum Vc for active region
+            let notes = [];
+
+            if (vc < vcMin) {
+                // Rc is too large, clamp it
+                rc = (vcc - vcMin) / ic;
+                const actualGain = rc / (reEffective + reIntrinsic);
+                notes.push('Gain limited to ' + actualGain.toFixed(1) + 'x. To achieve higher gain: increase Vcc, increase Ic, or use bypass mode.');
+            }
+
+            // Bias resistors
             const ib = ic / beta;
             const idivider = ib * 10;
             const rtotal = vcc / idivider;
             const r2 = (vb / vcc) * rtotal;
             const r1 = rtotal - r2;
 
-            // Now we need to solve for Re1 such that loaded gain = targetGain
-            // 
-            // Loaded gain = inputAtten * transistorGain * outputAtten
-            // 
-            // inputAtten = Zin / (Zin + Zsource)
-            // where Zin = R1 || R2 || (beta * (Re1 + reIntrinsic))
-            //
-            // transistorGain = Rc / (Re1 + reIntrinsic)
-            //
-            // outputAtten = Rload / (Rload + Rc)
-            //
-            // This is complex because Re1 appears in both inputAtten and transistorGain
-            // We'll solve iteratively
-
-            const outputAtten = rload / (rload + rc);
-            
-            // Iteratively solve for Re1
-            let re1 = rc / targetGain; // initial guess (ignoring loading)
-            
-            for (let i = 0; i < 20; i++) {
-                const zinBase = beta * (re1 + reIntrinsic);
-                const zin = parallel(r1, r2, zinBase);
-                const inputAtten = zin / (zin + zsource);
-                const transGain = rc / (re1 + reIntrinsic);
-                const loadedGain = inputAtten * transGain * outputAtten;
-                
-                // Adjust Re1 based on error
-                const error = targetGain / loadedGain;
-                // If loadedGain is too low, we need higher transGain, so lower Re1
-                re1 = re1 / Math.sqrt(error);
-                
-                // Clamp to valid range
-                if (re1 < 0) re1 = 0;
-                if (re1 > reTotal) re1 = reTotal;
-            }
-
-            let re2 = reTotal - re1;
-            let notes = [];
-
-            // Check limits
-            if (re1 <= reIntrinsic) {
-                re1 = 0;
-                re2 = reTotal;
-                const zinBase = beta * reIntrinsic;
-                const zin = parallel(r1, r2, zinBase);
-                const inputAtten = zin / (zin + zsource);
-                const maxTransGain = rc / reIntrinsic;
-                const maxLoadedGain = inputAtten * maxTransGain * outputAtten;
-                notes.push('Max loaded gain is ' + maxLoadedGain.toFixed(1) + ' with full bypass.');
-            }
-            
-            if (re1 >= reTotal) {
-                re1 = reTotal;
-                re2 = 0;
-                notes.push('No bypass cap needed.');
-            }
-
             // Round resistors to E24 values
             const r1Rounded = roundToE24(r1);
             const r2Rounded = roundToE24(r2);
             const rcRounded = roundToE24(rc);
-            const re1Rounded = re1 > 0 ? roundToE24(re1) : 0;
-            const re2Rounded = re2 > 0 ? roundToE24(re2) : 0;
+            const reRounded = roundToE24(re);
 
-            // Calculate final gains with ROUNDED values
-            const zinBaseRounded = beta * (re1Rounded + reIntrinsic);
-            const zinRounded = parallel(r1Rounded, r2Rounded, zinBaseRounded);
-            const inputAttenRounded = zinRounded / (zinRounded + zsource);
-            const outputAttenRounded = rload / (rload + rcRounded);
-            const transGainRounded = rcRounded / (re1Rounded + reIntrinsic);
-            const loadedGainRounded = inputAttenRounded * transGainRounded * outputAttenRounded;
+            // Calculate actual transistor gain with rounded values
+            const reEffectiveRounded = bypassMode === 'full' ? 0 : reRounded;
+            const transGain = rcRounded / (reEffectiveRounded + reIntrinsic);
 
-            const voutPeak = vin * loadedGainRounded;
+            // Input impedance depends on what's in the emitter
+            const zinBase = beta * (reEffectiveRounded + reIntrinsic);
+            const zin = parallel(r1Rounded, r2Rounded, zinBase);
 
-            // Capacitors - calculate then round
+            // Output impedance is approximately Rc
+            const zout = rcRounded;
+
+            // Attenuation factors
+            const inputAtten = zsource > 0 ? zin / (zin + zsource) : 1;
+            const outputAtten = isFinite(rload) ? rload / (rload + rcRounded) : 1;
+
+            // Effective gain (what you actually get)
+            const effectiveGain = inputAtten * transGain * outputAtten;
+            const voutPeak = vin * effectiveGain;
+
+            // Capacitors
             const fcorner = fLow / 10;
-            const cinCalc = 1 / (2 * Math.PI * fcorner * zinRounded);
-            const coutCalc = 1 / (2 * Math.PI * fcorner * rload);
-            const ceCalc = re2Rounded > 0 ? 10 / (2 * Math.PI * fLow * re2Rounded) : 0;
+            const cinCalc = 1 / (2 * Math.PI * fcorner * zin);
+            const coutCalc = isFinite(rload) ? 1 / (2 * Math.PI * fcorner * rload) : 1e-6;
+            const ceCalc = bypassMode === 'full' ? 10 / (2 * Math.PI * fLow * reRounded) : 0;
 
             const cinRounded = roundCap(cinCalc);
             const coutRounded = roundCap(coutCalc);
             const ceRounded = ceCalc > 0 ? roundCap(ceCalc) : 0;
 
-            const swingUp = vcc - vc;
-            const swingDown = vc - vcMin;
+            // Recalculate Vc with rounded Rc
+            const vcActual = vcc - ic * rcRounded;
+            const swingUp = vcc - vcActual;
+            const swingDown = vcActual - vcMin;
             const maxSwing = Math.min(swingUp, swingDown) * 2;
 
             // Warnings
             const warn = document.getElementById('warning');
-            if (voutPeak * 2 > maxSwing) {
-                warn.textContent = 'Warning: output (' + (voutPeak * 2).toFixed(2) + 'V p-p) exceeds swing (' + maxSwing.toFixed(2) + 'V p-p)';
+            let warnings = [];
+            if (vcActual < vcMin) {
+                warnings.push('<b>Biasing problem:</b> Vc (' + vcActual.toFixed(1) + 'V) is too close to Ve (' + ve.toFixed(1) + 'V). The transistor needs voltage headroom between collector and emitter to amplify. Try lowering the gain, increasing Vcc, or using bypass mode.');
+            } else if (voutPeak * 2 > maxSwing) {
+                warnings.push('<b>Clipping warning:</b> Your expected output (' + (voutPeak * 2).toFixed(2) + 'V p-p) exceeds the available swing (' + maxSwing.toFixed(2) + 'V p-p). The output waveform will be distorted. Try reducing the input level or lowering the gain.');
+            }
+            if (warnings.length > 0) {
+                warn.innerHTML = warnings.join('<br><br>');
                 warn.style.display = 'block';
             } else {
                 warn.style.display = 'none';
@@ -412,47 +769,66 @@
                 r1: fmt(r1Rounded, 'Ω'),
                 r2: fmt(r2Rounded, 'Ω'),
                 rc: fmt(rcRounded, 'Ω'),
-                re1: re1Rounded > 0 ? fmt(re1Rounded, 'Ω') : '0Ω',
-                re2: re2Rounded > 0 ? fmt(re2Rounded, 'Ω') : '0Ω',
+                re: fmt(reRounded, 'Ω'),
                 cin: fmt(cinRounded, 'F'),
                 cout: fmt(coutRounded, 'F'),
-                ce: ceRounded > 0 ? fmt(ceRounded, 'F') : '--',
-                rload: fmt(rload, 'Ω'),
+                ce: ceRounded > 0 ? fmt(ceRounded, 'F') : null,
+                rload: isFinite(rload) ? fmt(rload, 'Ω') : null,
                 vb: fmt(vb, 'V'),
                 ve: fmt(ve, 'V'),
-                vc: fmt(vc, 'V'),
+                vc: fmt(vcActual, 'V'),
                 ic: fmt(ic * 1000, 'mA'),
                 swing: fmt(maxSwing, 'V') + ' p-p',
-                transGain: transGainRounded.toFixed(1) + 'x',
-                loadedGain: loadedGainRounded.toFixed(1) + 'x'
+                transGain: transGain.toFixed(1) + 'x',
+                effectiveGain: effectiveGain.toFixed(1) + 'x',
+                bypassMode: bypassMode
             });
 
-            // Table values - show rounded values
+            // Table values
             document.getElementById('r1').textContent = fmtLong(r1Rounded, 'Ω');
             document.getElementById('r2').textContent = fmtLong(r2Rounded, 'Ω');
             document.getElementById('rc').textContent = fmtLong(rcRounded, 'Ω');
-            document.getElementById('re1').textContent = re1Rounded > 0 ? fmtLong(re1Rounded, 'Ω') : '0 (wire)';
-            document.getElementById('re2').textContent = re2Rounded > 0 ? fmtLong(re2Rounded, 'Ω') : '0 (omit)';
+            document.getElementById('re').textContent = fmtLong(reRounded, 'Ω');
             document.getElementById('cin').textContent = fmtLong(cinRounded, 'F');
             document.getElementById('cout').textContent = fmtLong(coutRounded, 'F');
-            document.getElementById('ce').textContent = ceRounded > 0 ? fmtLong(ceRounded, 'F') : 'not needed';
+            document.getElementById('ce').textContent = ceRounded > 0 ? fmtLong(ceRounded, 'F') : 'not used';
             document.getElementById('note').textContent = notes.join(' ');
 
-            // Gain breakdown - use rounded values
-            document.getElementById('zin').textContent = fmtLong(zinRounded, 'Ω');
-            document.getElementById('inputAtten').textContent = (inputAttenRounded * 100).toFixed(1) + '%';
-            document.getElementById('transGain').textContent = transGainRounded.toFixed(1) + 'x';
-            document.getElementById('outputAtten').textContent = (outputAttenRounded * 100).toFixed(1) + '%';
-            document.getElementById('loadedGain').textContent = loadedGainRounded.toFixed(1) + 'x';
+            // Gain analysis
+            document.getElementById('zin').textContent = fmtLong(zin, 'Ω');
+            document.getElementById('zout').textContent = fmtLong(zout, 'Ω');
+            document.getElementById('transGain').textContent = transGain.toFixed(1) + 'x';
+            document.getElementById('inputAtten').textContent = zsource > 0 ? (inputAtten * 100).toFixed(1) + '%' : '100% (no source Z)';
+            document.getElementById('outputAtten').textContent = isFinite(rload) ? (outputAtten * 100).toFixed(1) + '%' : '100% (no load)';
+            document.getElementById('effectiveGain').textContent = effectiveGain.toFixed(1) + 'x';
             document.getElementById('expectedOut').textContent = (voutPeak * 1000).toFixed(0) + ' mV peak';
+
+            // Draw input/output waveforms
+            document.getElementById('waveforms').innerHTML = drawWaveforms({
+                vinPeak: vin,
+                voutPeak: voutPeak,
+                maxSwing: maxSwing,
+                gain: effectiveGain
+            });
+
+            // Draw DC load line (and AC load line if there's a load)
+            document.getElementById('loadLine').innerHTML = drawLoadLine({
+                vcc: vcc,
+                rc: rcRounded / 1000, // Convert to kΩ for mA calculation
+                re: reRounded / 1000,
+                ic: ic * 1000, // Convert A to mA
+                vce: vcActual - ve, // Vce = Vc - Ve
+                veMin: ve,
+                rload: isFinite(rload) ? rload / 1000 : null // Convert to kΩ
+            });
 
             // Draw frequency response
             document.getElementById('freqResponse').innerHTML = drawFrequencyResponse({
-                zin: zinRounded,
+                zin: zin,
                 zsource: zsource,
                 rc: rcRounded,
-                re1: re1Rounded,
-                re2: re2Rounded,
+                re: reRounded,
+                reEffective: reEffectiveRounded,
                 reIntrinsic: reIntrinsic,
                 rload: rload,
                 cin: cinRounded,
@@ -460,9 +836,24 @@
                 ce: ceRounded,
                 beta: beta,
                 fLow: fLow,
-                fT: fT
+                fT: fT,
+                bypassMode: bypassMode
             });
         }
+        function resetDefaults() {
+            document.getElementById('vcc').value = '10';
+            document.getElementById('gain').value = '5';
+            document.getElementById('vin').value = '100';
+            document.getElementById('zsource').value = '0';
+            document.getElementById('fLow').value = '20';
+            document.getElementById('rload').value = '';
+            document.getElementById('bypassMode').value = 'none';
+            document.getElementById('ic').value = '1';
+            document.getElementById('beta').value = '100';
+            document.getElementById('ft').value = '150';
+            calculate();
+        }
+
         window.onload = calculate;
     </script>
 </body>
