@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CE Amplifier Calculator</title>
+    <style>
+        input[type="number"] {
+            width: 80px;
+        }
+    </style>
 </head>
 <body>
     <h1>CE Amplifier Calculator</h1>
@@ -35,8 +40,16 @@
             <td><input type="number" id="rload" value="10000" step="1000" min="1000"> Ω</td>
         </tr>
         <tr>
+            <td>Collector current (Ic):</td>
+            <td><input type="number" id="ic" value="1" step="0.5" min="0.1" max="20"> mA</td>
+        </tr>
+        <tr>
             <td>β (hFE):</td>
             <td><input type="number" id="beta" value="100" step="10" min="20"></td>
+        </tr>
+        <tr>
+            <td>fT (transistor):</td>
+            <td><input type="number" id="ft" value="150" step="50" min="10"> MHz</td>
         </tr>
     </table>
     <br>
@@ -71,10 +84,14 @@
         </table>
 
         <p id="note" style="color: gray;"></p>
+
+        <h2>Frequency Response</h2>
+        <div id="freqResponse"></div>
     </div>
 
     <script src="../common.js"></script>
     <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
     <script>
         function drawSchematic(vals) {
             const sch = new Schematic(450, 450);
@@ -175,6 +192,94 @@
             return sch.toSVG();
         }
 
+        // Calculate CE amplifier frequency response
+        function drawFrequencyResponse(params) {
+            const { zin, zsource, rc, re1, re2, reIntrinsic, rload, cin, cout, ce, beta, fLow, fT } = params;
+
+            // Frequency range: 1Hz to 100MHz
+            const fMin = 1;
+            const fMax = 100000000;
+
+            // Corner frequencies for each high-pass stage
+            const fcIn = 1 / (2 * Math.PI * cin * (zsource + zin));
+            const fcOut = 1 / (2 * Math.PI * cout * (rc + rload));
+            const fcBypass = ce > 0 ? 1 / (2 * Math.PI * ce * re2) : 0;
+
+            // High-frequency limitations
+            // fβ is where β starts rolling off
+            const fBeta = fT / beta;
+
+            // Effective load for gain calculation
+            const rcParallel = parallel(rc, rload);
+
+            // Miller effect: Cbc (typ ~2pF) multiplied by voltage gain
+            // Creates dominant high-frequency pole
+            const Cbc = 2e-12; // Typical collector-base capacitance
+            const Av = rcParallel / (re1 + reIntrinsic); // Voltage gain
+            const Cmiller = Cbc * (1 + Av);
+
+            // High-frequency pole from Miller + source impedance
+            const rSource = parallel(zsource, zin);
+            const fHmiller = 1 / (2 * Math.PI * rSource * Cmiller);
+
+            // Combined high-frequency pole (use dominant one)
+            const fH = Math.min(fBeta, fHmiller);
+
+            // Input and output attenuation (constant with frequency)
+            const inputAtten = zin / (zin + zsource);
+            const outputAtten = rload / (rload + rc);
+
+            // Gain at mid-band (Ce effective, Re2 bypassed)
+            const gainMB = rcParallel / (re1 + reIntrinsic);
+            // Gain at low frequency (Ce ineffective, Re2 in circuit)
+            const gainLF = rcParallel / (re1 + re2 + reIntrinsic);
+
+            // Magnitude function
+            function magnitude(f) {
+                // High-pass response from Cin
+                const hpIn = f / Math.sqrt(f * f + fcIn * fcIn);
+                // High-pass response from Cout
+                const hpOut = f / Math.sqrt(f * f + fcOut * fcOut);
+
+                // Low-pass response from transistor HF limitations
+                const lpHF = fH / Math.sqrt(f * f + fH * fH);
+
+                // Gain transition due to Ce bypass
+                let gain;
+                if (ce > 0 && fcBypass > 0) {
+                    const bypassFactor = f / Math.sqrt(f * f + fcBypass * fcBypass);
+                    gain = gainLF + (gainMB - gainLF) * bypassFactor;
+                } else {
+                    gain = gainMB;
+                }
+
+                return inputAtten * gain * outputAtten * hpIn * hpOut * lpHF;
+            }
+
+            // Find mid-band gain for normalization
+            const midF = Math.sqrt(fLow * fH); // Geometric mean of corners
+            const midBandGain = magnitude(Math.min(midF, fH / 10));
+
+            // Create graph
+            const graph = new Graph({
+                xMin: fMin,
+                xMax: fMax,
+                yMin: -40,
+                yMax: 10
+            });
+
+            // Generate response curve (normalized to mid-band = 0dB)
+            const curve = generateResponseCurve(fMin, fMax, f => magnitude(f) / midBandGain);
+            graph.addCurve(curve, { label: 'Response' });
+
+            // Add reference lines
+            graph.addHLine(-3, { color: '#f88', label: '-3 dB' });
+            graph.addVLine(fLow, { color: '#88f', label: 'fL' });
+            graph.addVLine(fH, { color: '#8a8', label: 'fH ≈ ' + fmt(fH, 'Hz') });
+
+            return graph.toSVG();
+        }
+
         function calculate() {
             const vcc = parseFloat(document.getElementById('vcc').value);
             const targetGain = parseFloat(document.getElementById('gain').value);
@@ -182,13 +287,14 @@
             const zsource = parseFloat(document.getElementById('zsource').value);
             const fLow = parseFloat(document.getElementById('fLow').value);
             const rload = parseFloat(document.getElementById('rload').value);
+            const ic = parseFloat(document.getElementById('ic').value) / 1000; // mA to A
             const beta = parseFloat(document.getElementById('beta').value);
+            const fT = parseFloat(document.getElementById('ft').value) * 1e6; // MHz to Hz
 
             const ve = Math.max(vcc * 0.1, 1.0);
             const vb = ve + 0.7;
             const vcMin = ve + 0.3;
             const vc = vcMin + (vcc - vcMin) / 2;
-            const ic = 1e-3;
 
             const reTotal = ve / ic;
             const rc = (vcc - vc) / ic;
@@ -339,6 +445,23 @@
             document.getElementById('outputAtten').textContent = (outputAttenRounded * 100).toFixed(1) + '%';
             document.getElementById('loadedGain').textContent = loadedGainRounded.toFixed(1) + 'x';
             document.getElementById('expectedOut').textContent = (voutPeak * 1000).toFixed(0) + ' mV peak';
+
+            // Draw frequency response
+            document.getElementById('freqResponse').innerHTML = drawFrequencyResponse({
+                zin: zinRounded,
+                zsource: zsource,
+                rc: rcRounded,
+                re1: re1Rounded,
+                re2: re2Rounded,
+                reIntrinsic: reIntrinsic,
+                rload: rload,
+                cin: cinRounded,
+                cout: coutRounded,
+                ce: ceRounded,
+                beta: beta,
+                fLow: fLow,
+                fT: fT
+            });
         }
         window.onload = calculate;
     </script>
