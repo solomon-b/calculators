@@ -3,249 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sallen-Key Highpass Filter Calculator</title>
+    <title>Sallen-Key Filter Calculator</title>
+    <style>
+        .combined-schematic {
+            overflow-x: auto;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: #fafafa;
+            margin: 10px 0;
+        }
+        .component-tables {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 10px 0;
+        }
+        .stage-values {
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: #fafafa;
+        }
+        .stage-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        table {
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        td, th {
+            padding: 4px 12px 4px 0;
+            text-align: left;
+        }
+        .component-table td:nth-child(2) {
+            font-family: monospace;
+        }
+    </style>
 </head>
 <body>
-    <h1>Sallen-Key Highpass Filter Calculator</h1>
-    <p>2nd order Butterworth (Q = 0.707)</p>
+    <h1>Sallen-Key Filter Calculator</h1>
+    <p>Butterworth response (maximally flat passband)</p>
 
     <h2>Inputs</h2>
     <table>
         <tr>
+            <td>Filter type:</td>
+            <td>
+                <select id="filterType" onchange="calculate()">
+                    <option value="lowpass">Lowpass</option>
+                    <option value="highpass">Highpass</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td>Order:</td>
+            <td>
+                <select id="order" onchange="calculate()">
+                    <option value="2">2nd order (-12 dB/oct)</option>
+                    <option value="4">4th order (-24 dB/oct)</option>
+                    <option value="6">6th order (-36 dB/oct)</option>
+                    <option value="8">8th order (-48 dB/oct)</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
             <td>Cutoff frequency:</td>
-            <td><input type="number" id="fc" value="1000" step="100" min="1"> Hz</td>
+            <td><input type="number" id="fc" value="1000" step="100" min="1" onchange="calculate()"> Hz</td>
         </tr>
         <tr>
-            <td>C value:</td>
-            <td><input type="number" id="cval" value="100" step="10" min="1"> nF</td>
+            <td>Capacitor value:</td>
+            <td><input type="number" id="cval" value="10" step="1" min="1" onchange="calculate()"> nF</td>
         </tr>
         <tr>
-            <td>Supply voltage (±):</td>
-            <td><input type="number" id="vcc" value="12" step="1" min="5"> V</td>
+            <td>Supply voltage (+/-):</td>
+            <td><input type="number" id="vcc" value="12" step="1" min="5" onchange="calculate()"> V</td>
         </tr>
     </table>
-    <br>
-    <button onclick="calculate()">Calculate</button>
 
     <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
 
     <div id="results">
-        <h2>Schematic</h2>
-        <svg width="520" height="300" style="font-family: monospace; font-size: 12px;">
-            <!-- Input -->
-            <text x="10" y="104">In</text>
-            <line x1="30" y1="100" x2="50" y2="100" stroke="black" stroke-width="2"/>
-            
-            <!-- Z1 (C1) -->
-            <line x1="50" y1="90" x2="50" y2="110" stroke="black" stroke-width="2"/>
-            <line x1="58" y1="90" x2="58" y2="110" stroke="black" stroke-width="2"/>
-            <text x="54" y="80" text-anchor="middle" id="schC1">C1</text>
-            <line x1="58" y1="100" x2="120" y2="100" stroke="black" stroke-width="2"/>
-            
-            <!-- Node Vx (between Z1 and Z2) -->
-            <circle cx="120" cy="100" r="3" fill="black"/>
-            
-            <!-- Z2 (C2) -->
-            <line x1="120" y1="100" x2="160" y2="100" stroke="black" stroke-width="2"/>
-            <line x1="160" y1="90" x2="160" y2="110" stroke="black" stroke-width="2"/>
-            <line x1="168" y1="90" x2="168" y2="110" stroke="black" stroke-width="2"/>
-            <text x="164" y="80" text-anchor="middle" id="schC2">C2</text>
-            <line x1="168" y1="100" x2="230" y2="100" stroke="black" stroke-width="2"/>
-            
-            <!-- Node at non-inverting input -->
-            <circle cx="230" cy="100" r="3" fill="black"/>
-            
-            <!-- Z3 (R1) - feedback from output to Vx -->
-            <line x1="120" y1="100" x2="120" y2="50" stroke="black" stroke-width="2"/>
-            <line x1="120" y1="50" x2="150" y2="50" stroke="black" stroke-width="2"/>
-            <rect x="150" y="40" width="60" height="20" fill="none" stroke="black" stroke-width="2"/>
-            <text x="180" y="35" text-anchor="middle" id="schR1">R1</text>
-            <line x1="210" y1="50" x2="350" y2="50" stroke="black" stroke-width="2"/>
-            <line x1="350" y1="50" x2="350" y2="115" stroke="black" stroke-width="2"/>
-            
-            <!-- Z4 (R2) - from non-inverting input to ground -->
-            <line x1="230" y1="100" x2="230" y2="120" stroke="black" stroke-width="2"/>
-            <rect x="220" y="120" width="20" height="60" fill="none" stroke="black" stroke-width="2"/>
-            <text x="205" y="155" id="schR2">R2</text>
-            <line x1="230" y1="180" x2="230" y2="200" stroke="black" stroke-width="2"/>
-            <!-- Ground -->
-            <line x1="220" y1="200" x2="240" y2="200" stroke="black" stroke-width="2"/>
-            <line x1="223" y1="205" x2="237" y2="205" stroke="black" stroke-width="1"/>
-            <line x1="226" y1="210" x2="234" y2="210" stroke="black" stroke-width="1"/>
-            
-            <!-- Op-amp triangle (flipped - inverting on top) -->
-            <polygon points="250,85 250,165 330,125" fill="none" stroke="black" stroke-width="2"/>
-            <text x="260" y="110">−</text>
-            <text x="260" y="145">+</text>
-            
-            <!-- Non-inverting input connection -->
-            <line x1="230" y1="140" x2="250" y2="140" stroke="black" stroke-width="2"/>
-            <line x1="230" y1="100" x2="230" y2="140" stroke="black" stroke-width="2"/>
-            
-            <!-- Inverting input connected to output (unity gain) -->
-            <line x1="250" y1="100" x2="240" y2="100" stroke="black" stroke-width="2"/>
-            <line x1="240" y1="100" x2="240" y2="70" stroke="black" stroke-width="2"/>
-            <line x1="240" y1="70" x2="350" y2="70" stroke="black" stroke-width="2"/>
-            <line x1="350" y1="70" x2="350" y2="115" stroke="black" stroke-width="2"/>
-            
-            <!-- Output -->
-            <line x1="330" y1="125" x2="400" y2="125" stroke="black" stroke-width="2"/>
-            <circle cx="350" cy="125" r="3" fill="black"/>
-            <text x="410" y="129">Out</text>
-            
-            <!-- Power supply labels -->
-            <line x1="290" y1="95" x2="290" y2="75" stroke="black" stroke-width="2"/>
-            <text x="305" y="80" id="schVpos">+V</text>
-            <line x1="290" y1="155" x2="290" y2="175" stroke="black" stroke-width="2"/>
-            <text x="305" y="175" id="schVneg">−V</text>
-            
-            <!-- Info display -->
-            <text x="20" y="250" style="font-weight: bold;">Cutoff:</text>
-            <text x="20" y="270" id="schFc">fc = -- Hz</text>
-            <text x="170" y="250" style="font-weight: bold;">Q:</text>
-            <text x="170" y="270" id="schQ">0.707</text>
-            <text x="300" y="250" style="font-weight: bold;">Slope:</text>
-            <text x="300" y="270">-40 dB/dec</text>
-        </svg>
-
-        <h2>Calculated Values</h2>
+        <h2>Filter Summary</h2>
         <table>
-            <tr><td>C1:</td><td id="c1"></td></tr>
-            <tr><td>C2:</td><td id="c2"></td></tr>
-            <tr><td>R1:</td><td id="r1"></td></tr>
-            <tr><td>R2:</td><td id="r2"></td></tr>
+            <tr><td>Type:</td><td id="summaryType"></td></tr>
+            <tr><td>Order:</td><td id="summaryOrder"></td></tr>
+            <tr><td>Cutoff frequency:</td><td id="summaryFc"></td></tr>
+            <tr><td>Rolloff:</td><td id="summaryRolloff"></td></tr>
+            <tr><td>Total gain:</td><td id="summaryGain"></td></tr>
         </table>
 
-        <h2>Filter Response</h2>
-        <table>
-            <tr><td>Cutoff frequency (fc):</td><td id="fcOut"></td></tr>
-            <tr><td>Q factor:</td><td id="qOut"></td></tr>
-            <tr><td>Passband gain:</td><td id="gainOut"></td></tr>
-            <tr><td>Rolloff:</td><td>-40 dB/decade (2nd order)</td></tr>
-        </table>
-
-        <p id="note" style="color: gray;"></p>
+        <h2>Stages</h2>
+        <div id="stages"></div>
     </div>
 
     <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
     <script>
+        // Draw a single stage into an existing schematic at x offset
+        function drawStageAt(sch, stage, vcc, xOff, stageIdx, isFirst, isLast) {
+            const isLowpass = stage.type === 'lowpass';
+            const Rval = fmt(stage.R, 'Ω');
+            const Cval = fmt(stage.C, 'F');
+            const prefix = 'S' + stageIdx + '_';
+
+            // Signal path at y=70, feedback at y=25
+            const sigY = 70;
+            const fbY = 25;
+
+            // Op-amp at local x=330
+            sch.place('opamp', prefix + 'U', xOff + 330, 90, { flip: true });
+
+            // Z1, Z2: Series elements from input to + input
+            if (isLowpass) {
+                sch.place('resistor-h', prefix + 'Z1', xOff + 50, sigY, { label: Rval });
+                sch.place('resistor-h', prefix + 'Z2', xOff + 140, sigY, { label: Rval });
+            } else {
+                sch.place('capacitor-h', prefix + 'Z1', xOff + 50, sigY, { label: Cval });
+                sch.place('capacitor-h', prefix + 'Z2', xOff + 140, sigY, { label: Cval });
+            }
+
+            // Z3: Feedback from Vx to output
+            if (isLowpass) {
+                sch.place('capacitor-h', prefix + 'Z3', xOff + 240, fbY, { label: Cval });
+            } else {
+                sch.place('resistor-h', prefix + 'Z3', xOff + 240, fbY, { label: Rval });
+            }
+
+            // Z4: Shunt from V+ node to ground
+            if (isLowpass) {
+                sch.place('capacitor-v', prefix + 'Z4', xOff + 210, 120, { label: Cval });
+                sch.place('ground', prefix + 'GND1', xOff + 210, 145);
+            } else {
+                sch.place('resistor-v', prefix + 'Z4', xOff + 210, 140, { label: Rval });
+                sch.place('ground', prefix + 'GND1', xOff + 210, 185);
+            }
+
+            // Gain network
+            sch.place('resistor-v', prefix + 'Ra', xOff + 260, 230, { label: fmt(stage.Ra, 'Ω') });
+            sch.place('ground', prefix + 'GND2', xOff + 260, 275);
+            if (stage.Rb > 0) {
+                sch.place('resistor-h', prefix + 'Rb', xOff + 340, 195, { label: fmt(stage.Rb, 'Ω') });
+            }
+
+            // --- Wiring ---
+
+            // Input connection
+            if (isFirst) {
+                sch.label('In', xOff + 5, sigY + 4);
+            }
+            sch.wire({ x: xOff + 20, y: sigY }, prefix + 'Z1.a');
+
+            // Z1 -> Vx -> Z2
+            sch.wire(prefix + 'Z1.b', { x: xOff + 95, y: sigY });
+            sch.wire({ x: xOff + 95, y: sigY }, prefix + 'Z2.a');
+            sch.node(xOff + 95, sigY);
+
+            // Z2 -> V+ node -> wire to op-amp plus
+            sch.wire(prefix + 'Z2.b', { x: xOff + 210, y: sigY });
+            sch.node(xOff + 210, sigY);
+            sch.wire({ x: xOff + 210, y: sigY }, prefix + 'U.plus');
+
+            // Z3 feedback: Vx up to Z3, Z3 across to output
+            sch.wire({ x: xOff + 95, y: sigY }, { x: xOff + 95, y: fbY });
+            sch.wire({ x: xOff + 95, y: fbY }, prefix + 'Z3.a');
+            sch.wire(prefix + 'Z3.b', { x: xOff + 410, y: fbY });
+            sch.wire({ x: xOff + 410, y: fbY }, { x: xOff + 410, y: 90 });
+
+            // Z4 shunt: V+ down to Z4, Z4 to ground
+            sch.wire({ x: xOff + 210, y: sigY }, { x: xOff + 210, y: 116 });
+            sch.wire(prefix + 'Z4.b', prefix + 'GND1.a');
+
+            // Gain network wiring
+            sch.wire(prefix + 'U.minus', { x: xOff + 260, y: 110 }, { route: 'v-h' });
+            sch.wire({ x: xOff + 260, y: 110 }, { x: xOff + 260, y: 195 });
+            sch.node(xOff + 260, 195);
+            sch.wire({ x: xOff + 260, y: 195 }, prefix + 'Ra.a');
+            sch.wire(prefix + 'Ra.b', prefix + 'GND2.a');
+
+            if (stage.Rb > 0) {
+                sch.wire({ x: xOff + 260, y: 195 }, prefix + 'Rb.a');
+                sch.wire(prefix + 'Rb.b', { x: xOff + 410, y: 195 });
+                sch.wire({ x: xOff + 410, y: 90 }, { x: xOff + 410, y: 195 });
+            } else {
+                sch.wire({ x: xOff + 260, y: 195 }, { x: xOff + 410, y: 195 });
+                sch.wire({ x: xOff + 410, y: 90 }, { x: xOff + 410, y: 195 });
+                sch.label('(wire)', xOff + 335, 190, { anchor: 'middle' });
+            }
+
+            // Output from op-amp
+            sch.wire(prefix + 'U.out', { x: xOff + 430, y: 90 });
+            sch.node(xOff + 410, 90);
+
+            // Output label only on last stage
+            if (isLast) {
+                sch.label('Out', xOff + 435, 94);
+            }
+
+            // Power rails
+            sch.wire(prefix + 'U.vpos', { x: xOff + 330, y: 45 });
+            sch.label('+' + vcc + 'V', xOff + 340, 42);
+            sch.wire(prefix + 'U.vneg', { x: xOff + 330, y: 135 });
+            sch.label('−' + vcc + 'V', xOff + 340, 150);
+
+            // Stage label
+            sch.label('Stage ' + stage.stageNum, xOff + 200, 295, { anchor: 'middle', bold: true });
+            sch.label('Q=' + stage.Q.toFixed(2) + ' K=' + stage.K.toFixed(2), xOff + 200, 308, { anchor: 'middle' });
+        }
+
+        // Draw all stages in a single horizontal schematic
+        function drawAllStages(stages, vcc) {
+            const stageWidth = 450;
+            const margin = 30;
+            const totalWidth = margin + stages.length * stageWidth + margin;
+            const sch = new Schematic(totalWidth, 320);
+
+            for (let i = 0; i < stages.length; i++) {
+                const xOff = margin + i * stageWidth;
+                const isFirst = i === 0;
+                const isLast = i === stages.length - 1;
+                drawStageAt(sch, stages[i], vcc, xOff, i, isFirst, isLast);
+
+                // Wire between stages (output of this stage to input of next)
+                if (!isLast) {
+                    const nextXOff = margin + (i + 1) * stageWidth;
+                    sch.wire({ x: xOff + 430, y: 90 }, { x: nextXOff + 20, y: 70 }, { route: 'h-v' });
+                }
+            }
+
+            return sch.toSVG();
+        }
+
         function calculate() {
+            const filterType = document.getElementById('filterType').value;
+            const order = parseInt(document.getElementById('order').value);
             const fc = parseFloat(document.getElementById('fc').value);
-            const cInput = parseFloat(document.getElementById('cval').value) * 1e-9; // convert nF to F
+            const cInput = parseFloat(document.getElementById('cval').value) * 1e-9;
             const vcc = parseFloat(document.getElementById('vcc').value);
 
-            // For Butterworth response, Q = 0.707 (1/sqrt(2))
-            // 
-            // Sallen-Key highpass unity gain topology:
-            // Z1 = C1 (series input)
-            // Z2 = C2 (series to + input)
-            // Z3 = R1 (feedback from output to Vx node)
-            // Z4 = R2 (from + input to ground)
-            //
-            // Transfer function gives:
-            // fc = 1 / (2 * pi * sqrt(R1 * R2 * C1 * C2))
-            // Q = sqrt(R1 * R2 * C1 * C2) / (C2 * (R1 + R2))
-            //
-            // With equal caps C1 = C2 = C:
-            // fc = 1 / (2 * pi * C * sqrt(R1 * R2))
-            // Q = sqrt(R1 * R2) / (R1 + R2)
-            //
-            // For Butterworth Q = 0.707 = 1/sqrt(2):
-            // Let R2 = R and R1 = m*R
-            // Q = sqrt(m)*R / ((m+1)*R) = sqrt(m)/(m+1) = 1/sqrt(2)
-            // sqrt(2)*sqrt(m) = m + 1
-            // 2m = (m+1)^2 = m^2 + 2m + 1
-            // m^2 + 1 = 0 -- that's wrong, let me redo
-            //
-            // Actually: sqrt(m)/(m+1) = 0.707
-            // sqrt(m) = 0.707(m+1)
-            // m = 0.5(m+1)^2 = 0.5(m^2 + 2m + 1)
-            // 2m = m^2 + 2m + 1
-            // m^2 = -1 -- still wrong
-            //
-            // Let me reconsider. For equal R (R1=R2=R):
-            // Q = R / (2R) = 0.5 -- not Butterworth
-            //
-            // For Butterworth we need Q = 0.707
-            // With equal C, we need: sqrt(R1*R2)/(R1+R2) = 0.707
-            // 
-            // If R1 = k*R2:
-            // sqrt(k)*R2 / ((k+1)*R2) = sqrt(k)/(k+1) = 0.707
-            // sqrt(k) = 0.707*(k+1)
-            // k = 0.5*(k+1)^2
-            // 2k = k^2 + 2k + 1
-            // k^2 = -1 ... still impossible
-            //
-            // Hmm, max Q with this topology and equal C is 0.5 (when R1=R2)
-            // For Q > 0.5 we need C1 ≠ C2
-            //
-            // Let's use C1 = C, C2 = C/2 (C2 = 0.5*C1)
-            // Then with R1 = R2 = R:
-            // fc = 1/(2*pi*sqrt(R*R*C*C/2)) = 1/(2*pi*R*C*sqrt(0.5))
-            // Q = sqrt(R*R*C*C/2) / (C/2 * 2R) = R*C/sqrt(2) / (R*C) = 1/sqrt(2) = 0.707 ✓
-            //
-            // So for Butterworth: C1 = 2*C2, R1 = R2
+            const C = roundCap(cInput);
+            const stages = butterworthFilter(filterType, order, fc, C);
 
-            const C2 = roundCap(cInput);
-            const C1 = roundCap(2 * cInput);  // C1 = 2 * C2
-            
-            // With C1 = 2*C2 and R1 = R2 = R:
-            // fc = 1 / (2 * pi * R * sqrt(C1 * C2)) = 1 / (2 * pi * R * sqrt(2) * C2)
-            // R = 1 / (2 * pi * fc * sqrt(2) * C2)
-            
-            const rCalc = 1 / (2 * Math.PI * fc * Math.sqrt(2) * C2);
-            const R1 = roundToE24(rCalc);
-            const R2 = roundToE24(rCalc);
-
-            // Calculate actual fc and Q with rounded values
-            const fcActual = 1 / (2 * Math.PI * Math.sqrt(R1 * R2 * C1 * C2));
-            const qActual = Math.sqrt(R1 * R2 * C1 * C2) / (C2 * (R1 + R2));
-
-            let notes = [];
-
-            // Check for extreme resistor values
-            if (R1 > 1e6 || R2 > 1e6) {
-                notes.push('High resistor values may cause noise issues. Try larger capacitors.');
-            }
-            if (R1 < 100 || R2 < 100) {
-                notes.push('Low resistor values may load the op-amp. Try smaller capacitors.');
+            if (!stages) {
+                document.getElementById('warning').textContent = 'Invalid order selected';
+                document.getElementById('warning').style.display = 'block';
+                return;
             }
 
-            // Warnings
+            // Check for warnings
+            let warnings = [];
+            for (const stage of stages) {
+                if (stage.R > 1e6) {
+                    warnings.push(`Stage ${stage.stageNum}: R too high (${fmtLong(stage.R, 'Ω')}). Try larger C.`);
+                }
+                if (stage.R < 100) {
+                    warnings.push(`Stage ${stage.stageNum}: R too low (${fmtLong(stage.R, 'Ω')}). Try smaller C.`);
+                }
+            }
+
             const warn = document.getElementById('warning');
-            if (notes.length > 0) {
-                warn.textContent = notes.join(' ');
+            if (warnings.length > 0) {
+                warn.innerHTML = warnings.join('<br>');
                 warn.style.display = 'block';
             } else {
                 warn.style.display = 'none';
             }
 
-            // Results
-            document.getElementById('results').style.display = 'block';
-            
-            // Table values
-            document.getElementById('c1').textContent = fmtLong(C1, 'F');
-            document.getElementById('c2').textContent = fmtLong(C2, 'F');
-            document.getElementById('r1').textContent = fmtLong(R1, 'Ω');
-            document.getElementById('r2').textContent = fmtLong(R2, 'Ω');
-            
-            // Performance
-            document.getElementById('fcOut').textContent = fmtLong(fcActual, 'Hz');
-            document.getElementById('qOut').textContent = qActual.toFixed(3) + ' (Butterworth = 0.707)';
-            document.getElementById('gainOut').textContent = '1 (unity gain, 0 dB)';
-            
-            document.getElementById('note').textContent = '';
-            
-            // Schematic values
-            document.getElementById('schC1').textContent = fmt(C1, 'F');
-            document.getElementById('schC2').textContent = fmt(C2, 'F');
-            document.getElementById('schR1').textContent = fmt(R1, 'Ω');
-            document.getElementById('schR2').textContent = fmt(R2, 'Ω');
-            document.getElementById('schVpos').textContent = '+' + vcc + 'V';
-            document.getElementById('schVneg').textContent = '−' + vcc + 'V';
-            document.getElementById('schFc').textContent = 'fc = ' + fmt(fcActual, 'Hz');
-            document.getElementById('schQ').textContent = 'Q = ' + qActual.toFixed(2);
+            // Calculate total gain
+            const totalGain = stages.reduce((g, s) => g * s.K, 1);
+
+            // Summary
+            document.getElementById('summaryType').textContent = filterType.charAt(0).toUpperCase() + filterType.slice(1);
+            document.getElementById('summaryOrder').textContent = order + ' (' + stages.length + ' stage' + (stages.length > 1 ? 's' : '') + ')';
+            document.getElementById('summaryFc').textContent = fmtLong(stages[0].fcActual, 'Hz');
+            document.getElementById('summaryRolloff').textContent = '-' + (order * 6) + ' dB/octave (-' + (order * 20) + ' dB/decade)';
+            document.getElementById('summaryGain').textContent = totalGain.toFixed(2) + ' V/V (' + (20 * Math.log10(totalGain)).toFixed(1) + ' dB)';
+
+            // Draw combined schematic
+            const stagesDiv = document.getElementById('stages');
+            stagesDiv.innerHTML = '';
+
+            const schematicDiv = document.createElement('div');
+            schematicDiv.className = 'combined-schematic';
+            schematicDiv.innerHTML = drawAllStages(stages, vcc);
+            stagesDiv.appendChild(schematicDiv);
+
+            // Component values table
+            const tableDiv = document.createElement('div');
+            tableDiv.className = 'component-tables';
+
+            for (const stage of stages) {
+                const stageDiv = document.createElement('div');
+                stageDiv.className = 'stage-values';
+
+                const title = document.createElement('div');
+                title.className = 'stage-title';
+                title.textContent = 'Stage ' + stage.stageNum + ' (Q = ' + stage.targetQ.toFixed(4) + ')';
+                stageDiv.appendChild(title);
+
+                const table = document.createElement('table');
+                table.className = 'component-table';
+                table.innerHTML = `
+                    <tr><td>R (x2):</td><td>${fmtLong(stage.R, 'Ω')}</td></tr>
+                    <tr><td>C (x2):</td><td>${fmtLong(stage.C, 'F')}</td></tr>
+                    <tr><td>Ra:</td><td>${fmtLong(stage.Ra, 'Ω')}</td></tr>
+                    <tr><td>Rb:</td><td>${stage.Rb > 0 ? fmtLong(stage.Rb, 'Ω') : 'wire (0)'}</td></tr>
+                    <tr><td>Gain (K):</td><td>${stage.K.toFixed(3)}</td></tr>
+                    <tr><td>Actual Q:</td><td>${stage.Q.toFixed(3)}</td></tr>
+                    <tr><td>Actual fc:</td><td>${fmtLong(stage.fcActual, 'Hz')}</td></tr>
+                `;
+                stageDiv.appendChild(table);
+
+                tableDiv.appendChild(stageDiv);
+            }
+
+            stagesDiv.appendChild(tableDiv);
         }
+
         window.onload = calculate;
     </script>
 </body>
