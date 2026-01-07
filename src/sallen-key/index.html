@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sallen-Key Filter Calculator</title>
     <style>
+        input[type="number"] {
+            width: 80px;
+        }
         .combined-schematic {
             overflow-x: auto;
             padding: 10px;
@@ -123,6 +126,7 @@
 
     <script src="../common.js"></script>
     <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
     <script>
         // Draw a single stage into an existing schematic at x offset
         function drawStageAt(sch, stage, vcc, xOff, stageIdx, isFirst, isLast) {
@@ -257,25 +261,14 @@
             return mag;
         }
 
-        // Draw frequency response plot
+        // Draw frequency response plot using Graph class
         function drawFrequencyResponse(stages, responseType, rippleDb, targetFc) {
-            const width = 600;
-            const height = 300;
-            const margin = { top: 20, right: 30, bottom: 40, left: 50 };
-            const plotW = width - margin.left - margin.right;
-            const plotH = height - margin.top - margin.bottom;
-
-            // Frequency range: 2 decades below to 2 decades above fc
             const fc = targetFc;
             const fMin = fc / 100;
             const fMax = fc * 100;
-
-            // dB range
-            const dbMin = -60;
-            const dbMax = 20;
+            const isLowpass = stages[0].type === 'lowpass';
 
             // Find normalization factor (peak gain in passband)
-            const isLowpass = stages[0].type === 'lowpass';
             let maxMag = 0;
             for (let i = 0; i <= 100; i++) {
                 const f = isLowpass
@@ -284,84 +277,30 @@
                 const mag = filterMagnitude(stages, f);
                 if (mag > maxMag) maxMag = mag;
             }
-            if (maxMag === 0) maxMag = 1; // Fallback
+            if (maxMag === 0) maxMag = 1;
 
-            // Generate response data points (normalized to 0 dB peak)
-            const points = [];
-            const numPoints = 200;
-            for (let i = 0; i <= numPoints; i++) {
-                const logF = Math.log10(fMin) + (Math.log10(fMax) - Math.log10(fMin)) * i / numPoints;
-                const f = Math.pow(10, logF);
-                const mag = filterMagnitude(stages, f) / maxMag;
-                const db = 20 * Math.log10(mag);
-                points.push({ f, db: Math.max(dbMin, Math.min(dbMax, db)) });
-            }
+            // Create graph
+            const graph = new Graph({
+                xMin: fMin,
+                xMax: fMax,
+                yMin: -60,
+                yMax: 10
+            });
 
-            // Coordinate transforms
-            const xScale = (f) => margin.left + plotW * (Math.log10(f) - Math.log10(fMin)) / (Math.log10(fMax) - Math.log10(fMin));
-            const yScale = (db) => margin.top + plotH * (dbMax - db) / (dbMax - dbMin);
+            // Generate and add response curve
+            const curve = generateResponseCurve(fMin, fMax, f => filterMagnitude(stages, f) / maxMag);
+            graph.addCurve(curve);
 
-            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+            // Add reference lines
+            graph.addVLine(fc, { color: '#88f', label: 'fc = ' + fmt(fc, 'Hz') });
 
-            // Background
-            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
-
-            // Grid lines - vertical (frequency decades)
-            for (let decade = Math.ceil(Math.log10(fMin)); decade <= Math.floor(Math.log10(fMax)); decade++) {
-                const f = Math.pow(10, decade);
-                const x = xScale(f);
-                svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${margin.top + plotH}" stroke="#ddd" stroke-width="1"/>`;
-                svg += `<text x="${x}" y="${height - 5}" text-anchor="middle">${fmt(f, 'Hz')}</text>`;
-            }
-
-            // Grid lines - horizontal (dB)
-            for (let db = dbMin; db <= dbMax; db += 10) {
-                const y = yScale(db);
-                svg += `<line x1="${margin.left}" y1="${y}" x2="${margin.left + plotW}" y2="${y}" stroke="#ddd" stroke-width="1"/>`;
-                svg += `<text x="${margin.left - 5}" y="${y + 4}" text-anchor="end">${db}</text>`;
-            }
-
-            // Reference lines depend on filter type
             if (responseType === 'chebyshev') {
-                // For Chebyshev, show 0dB and -ripple lines (passband bounds)
-                const y0db = yScale(0);
-                const yRipple = yScale(-rippleDb);
-                svg += `<line x1="${margin.left}" y1="${y0db}" x2="${margin.left + plotW}" y2="${y0db}" stroke="#8a8" stroke-width="1" stroke-dasharray="4,2"/>`;
-                svg += `<line x1="${margin.left}" y1="${yRipple}" x2="${margin.left + plotW}" y2="${yRipple}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+                graph.addHLine(-rippleDb, { color: '#f88', label: '-' + rippleDb + ' dB' });
             } else {
-                // For Butterworth, show -3dB line
-                const y3db = yScale(-3);
-                svg += `<line x1="${margin.left}" y1="${y3db}" x2="${margin.left + plotW}" y2="${y3db}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+                graph.addHLine(-3, { color: '#f88', label: '-3 dB' });
             }
 
-            // Cutoff frequency marker
-            const xFc = xScale(fc);
-            svg += `<line x1="${xFc}" y1="${margin.top}" x2="${xFc}" y2="${margin.top + plotH}" stroke="#88f" stroke-width="1" stroke-dasharray="4,2"/>`;
-
-            // Response curve
-            let pathD = `M ${xScale(points[0].f)} ${yScale(points[0].db)}`;
-            for (let i = 1; i < points.length; i++) {
-                pathD += ` L ${xScale(points[i].f)} ${yScale(points[i].db)}`;
-            }
-            svg += `<path d="${pathD}" fill="none" stroke="#2266cc" stroke-width="2"/>`;
-
-            // Axis labels
-            svg += `<text x="${width / 2}" y="${height - 22}" text-anchor="middle">Frequency</text>`;
-            svg += `<text x="15" y="${height / 2}" text-anchor="middle" transform="rotate(-90, 15, ${height / 2})">Gain (dB)</text>`;
-
-            // Legend
-            svg += `<line x1="${margin.left + 10}" y1="${margin.top + 12}" x2="${margin.left + 30}" y2="${margin.top + 12}" stroke="#88f" stroke-dasharray="4,2"/>`;
-            svg += `<text x="${margin.left + 35}" y="${margin.top + 16}">fc = ${fmt(fc, 'Hz')}</text>`;
-            if (responseType === 'chebyshev') {
-                svg += `<line x1="${margin.left + 130}" y1="${margin.top + 12}" x2="${margin.left + 150}" y2="${margin.top + 12}" stroke="#f88" stroke-dasharray="4,2"/>`;
-                svg += `<text x="${margin.left + 155}" y="${margin.top + 16}">-${rippleDb} dB</text>`;
-            } else {
-                svg += `<line x1="${margin.left + 130}" y1="${margin.top + 12}" x2="${margin.left + 150}" y2="${margin.top + 12}" stroke="#f88" stroke-dasharray="4,2"/>`;
-                svg += `<text x="${margin.left + 155}" y="${margin.top + 16}">-3 dB</text>`;
-            }
-
-            svg += '</svg>';
-            return svg;
+            return graph.toSVG();
         }
 
         // Draw all stages in a single horizontal schematic
