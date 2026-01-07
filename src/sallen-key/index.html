@@ -45,7 +45,6 @@
 </head>
 <body>
     <h1>Sallen-Key Filter Calculator</h1>
-    <p>Butterworth response (maximally flat passband)</p>
 
     <h2>Inputs</h2>
     <table>
@@ -55,6 +54,26 @@
                 <select id="filterType" onchange="calculate()">
                     <option value="lowpass">Lowpass</option>
                     <option value="highpass">Highpass</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td>Response:</td>
+            <td>
+                <select id="responseType" onchange="updateRippleVisibility(); calculate()">
+                    <option value="butterworth">Butterworth (maximally flat)</option>
+                    <option value="chebyshev">Chebyshev Type I (steeper rolloff)</option>
+                </select>
+            </td>
+        </tr>
+        <tr id="rippleRow" style="display: none;">
+            <td>Passband ripple:</td>
+            <td>
+                <select id="ripple" onchange="calculate()">
+                    <option value="0.5">0.5 dB</option>
+                    <option value="1" selected>1 dB</option>
+                    <option value="2">2 dB</option>
+                    <option value="3">3 dB</option>
                 </select>
             </td>
         </tr>
@@ -239,7 +258,7 @@
         }
 
         // Draw frequency response plot
-        function drawFrequencyResponse(stages) {
+        function drawFrequencyResponse(stages, responseType, rippleDb, targetFc) {
             const width = 600;
             const height = 300;
             const margin = { top: 20, right: 30, bottom: 40, left: 50 };
@@ -247,7 +266,7 @@
             const plotH = height - margin.top - margin.bottom;
 
             // Frequency range: 2 decades below to 2 decades above fc
-            const fc = stages[0].fcActual;
+            const fc = targetFc;
             const fMin = fc / 100;
             const fMax = fc * 100;
 
@@ -255,13 +274,25 @@
             const dbMin = -60;
             const dbMax = 20;
 
-            // Generate response data points
+            // Find normalization factor (peak gain in passband)
+            const isLowpass = stages[0].type === 'lowpass';
+            let maxMag = 0;
+            for (let i = 0; i <= 100; i++) {
+                const f = isLowpass
+                    ? fMin + (fc - fMin) * i / 100
+                    : fc + (fMax - fc) * i / 100;
+                const mag = filterMagnitude(stages, f);
+                if (mag > maxMag) maxMag = mag;
+            }
+            if (maxMag === 0) maxMag = 1; // Fallback
+
+            // Generate response data points (normalized to 0 dB peak)
             const points = [];
             const numPoints = 200;
             for (let i = 0; i <= numPoints; i++) {
                 const logF = Math.log10(fMin) + (Math.log10(fMax) - Math.log10(fMin)) * i / numPoints;
                 const f = Math.pow(10, logF);
-                const mag = filterMagnitude(stages, f);
+                const mag = filterMagnitude(stages, f) / maxMag;
                 const db = 20 * Math.log10(mag);
                 points.push({ f, db: Math.max(dbMin, Math.min(dbMax, db)) });
             }
@@ -290,9 +321,18 @@
                 svg += `<text x="${margin.left - 5}" y="${y + 4}" text-anchor="end">${db}</text>`;
             }
 
-            // -3dB line
-            const y3db = yScale(-3);
-            svg += `<line x1="${margin.left}" y1="${y3db}" x2="${margin.left + plotW}" y2="${y3db}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+            // Reference lines depend on filter type
+            if (responseType === 'chebyshev') {
+                // For Chebyshev, show 0dB and -ripple lines (passband bounds)
+                const y0db = yScale(0);
+                const yRipple = yScale(-rippleDb);
+                svg += `<line x1="${margin.left}" y1="${y0db}" x2="${margin.left + plotW}" y2="${y0db}" stroke="#8a8" stroke-width="1" stroke-dasharray="4,2"/>`;
+                svg += `<line x1="${margin.left}" y1="${yRipple}" x2="${margin.left + plotW}" y2="${yRipple}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+            } else {
+                // For Butterworth, show -3dB line
+                const y3db = yScale(-3);
+                svg += `<line x1="${margin.left}" y1="${y3db}" x2="${margin.left + plotW}" y2="${y3db}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+            }
 
             // Cutoff frequency marker
             const xFc = xScale(fc);
@@ -312,8 +352,13 @@
             // Legend
             svg += `<line x1="${margin.left + 10}" y1="${margin.top + 12}" x2="${margin.left + 30}" y2="${margin.top + 12}" stroke="#88f" stroke-dasharray="4,2"/>`;
             svg += `<text x="${margin.left + 35}" y="${margin.top + 16}">fc = ${fmt(fc, 'Hz')}</text>`;
-            svg += `<line x1="${margin.left + 130}" y1="${margin.top + 12}" x2="${margin.left + 150}" y2="${margin.top + 12}" stroke="#f88" stroke-dasharray="4,2"/>`;
-            svg += `<text x="${margin.left + 155}" y="${margin.top + 16}">-3 dB</text>`;
+            if (responseType === 'chebyshev') {
+                svg += `<line x1="${margin.left + 130}" y1="${margin.top + 12}" x2="${margin.left + 150}" y2="${margin.top + 12}" stroke="#f88" stroke-dasharray="4,2"/>`;
+                svg += `<text x="${margin.left + 155}" y="${margin.top + 16}">-${rippleDb} dB</text>`;
+            } else {
+                svg += `<line x1="${margin.left + 130}" y1="${margin.top + 12}" x2="${margin.left + 150}" y2="${margin.top + 12}" stroke="#f88" stroke-dasharray="4,2"/>`;
+                svg += `<text x="${margin.left + 155}" y="${margin.top + 16}">-3 dB</text>`;
+            }
 
             svg += '</svg>';
             return svg;
@@ -342,15 +387,28 @@
             return sch.toSVG();
         }
 
+        function updateRippleVisibility() {
+            const response = document.getElementById('responseType').value;
+            document.getElementById('rippleRow').style.display = response === 'chebyshev' ? '' : 'none';
+        }
+
         function calculate() {
             const filterType = document.getElementById('filterType').value;
+            const responseType = document.getElementById('responseType').value;
             const order = parseInt(document.getElementById('order').value);
             const fc = parseFloat(document.getElementById('fc').value);
             const cInput = parseFloat(document.getElementById('cval').value) * 1e-9;
             const vcc = parseFloat(document.getElementById('vcc').value);
+            const rippleDb = parseFloat(document.getElementById('ripple').value);
 
             const C = roundCap(cInput);
-            const stages = butterworthFilter(filterType, order, fc, C);
+
+            let stages;
+            if (responseType === 'chebyshev') {
+                stages = chebyshevFilter(filterType, order, fc, C, rippleDb);
+            } else {
+                stages = butterworthFilter(filterType, order, fc, C);
+            }
 
             if (!stages) {
                 document.getElementById('warning').textContent = 'Invalid order selected';
@@ -381,7 +439,11 @@
             const totalGain = stages.reduce((g, s) => g * s.K, 1);
 
             // Summary
-            document.getElementById('summaryType').textContent = filterType.charAt(0).toUpperCase() + filterType.slice(1);
+            const responseLabel = responseType === 'chebyshev'
+                ? `Chebyshev (${rippleDb} dB ripple)`
+                : 'Butterworth';
+            document.getElementById('summaryType').textContent =
+                filterType.charAt(0).toUpperCase() + filterType.slice(1) + ' / ' + responseLabel;
             document.getElementById('summaryOrder').textContent = order + ' (' + stages.length + ' stage' + (stages.length > 1 ? 's' : '') + ')';
             document.getElementById('summaryFc').textContent = fmtLong(stages[0].fcActual, 'Hz');
             document.getElementById('summaryRolloff').textContent = '-' + (order * 6) + ' dB/octave (-' + (order * 20) + ' dB/decade)';
@@ -429,7 +491,7 @@
 
             // Draw frequency response
             const responseDiv = document.getElementById('response');
-            responseDiv.innerHTML = drawFrequencyResponse(stages);
+            responseDiv.innerHTML = drawFrequencyResponse(stages, responseType, rippleDb, fc);
         }
 
         window.onload = calculate;

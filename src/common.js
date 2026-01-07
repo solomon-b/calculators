@@ -141,6 +141,90 @@ const BUTTERWORTH_Q = {
     8: [0.5098, 0.6013, 0.8999, 2.5628]    // 4 stages
 };
 
+// Calculate Chebyshev Type I pole Q values and frequency scaling
+// Returns array of { Q, wScale } for each 2nd-order stage
+function chebyshevPoles(order, rippleDb) {
+    const epsilon = Math.sqrt(Math.pow(10, rippleDb / 10) - 1);
+    const a = Math.asinh(1 / epsilon) / order;
+
+    const poles = [];
+    for (let k = 1; k <= order; k++) {
+        const theta = (2 * k - 1) * Math.PI / (2 * order);
+        const sigma = -Math.sinh(a) * Math.sin(theta);
+        const omega = Math.cosh(a) * Math.cos(theta);
+        poles.push({ sigma, omega });
+    }
+
+    // Pair complex conjugate poles into 2nd-order sections
+    // Poles are symmetric, so we take first half (or middle one for odd order)
+    const stages = [];
+    const numStages = Math.floor(order / 2);
+
+    for (let i = 0; i < numStages; i++) {
+        // Poles are ordered by angle, pair from outside in
+        const pole = poles[i];
+        const w0 = Math.sqrt(pole.sigma * pole.sigma + pole.omega * pole.omega);
+        const Q = w0 / (-2 * pole.sigma);
+        stages.push({ Q, w0 });
+    }
+
+    // Sort stages by Q (lower Q first for better noise performance)
+    stages.sort((a, b) => a.Q - b.Q);
+
+    return stages;
+}
+
+// Calculate Chebyshev stage components
+function chebyshevStage(fc, stageParams, C) {
+    const { Q, w0 } = stageParams;
+
+    // Chebyshev stages have different natural frequencies
+    // fc is the passband edge, w0 is normalized to 1 at passband edge
+    const stageFC = fc * w0;
+
+    const R = 1 / (2 * Math.PI * stageFC * C);
+    const Rround = roundToE24(R);
+
+    // Gain for desired Q: K = 3 - 1/Q
+    const K = 3 - (1 / Q);
+
+    const Ra = 10000;
+    const Rb = (K - 1) * Ra;
+    const RaRound = roundToE24(Ra);
+    const RbRound = Rb > 0 ? roundToE24(Rb) : 0;
+
+    const Kactual = RbRound > 0 ? 1 + RbRound / RaRound : 1;
+    const fcActual = 1 / (2 * Math.PI * Rround * C);
+    const Qactual = 1 / (3 - Kactual);
+
+    return {
+        R: Rround,
+        C: C,
+        K: Kactual,
+        Ra: RaRound,
+        Rb: RbRound,
+        fcActual: fcActual,
+        Q: Qactual,
+        targetQ: Q,
+        w0: w0
+    };
+}
+
+// Calculate complete Chebyshev Type I filter
+function chebyshevFilter(type, order, fc, C, rippleDb) {
+    const poleData = chebyshevPoles(order, rippleDb);
+
+    const stages = [];
+    for (let i = 0; i < poleData.length; i++) {
+        const stage = chebyshevStage(fc, poleData[i], C);
+        stage.type = type;
+        stage.stageNum = i + 1;
+        stages.push(stage);
+    }
+
+    return stages;
+}
+
 // Calculate Sallen-Key stage components
 // Uses equal-R, equal-C design with gain to set Q
 // Returns: { R, C, K, Ra, Rb, fcActual, Q }
