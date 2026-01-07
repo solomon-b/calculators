@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sallen-Key Highpass Filter Calculator</title>
+</head>
+<body>
+    <h1>Sallen-Key Highpass Filter Calculator</h1>
+    <p>2nd order Butterworth (Q = 0.707)</p>
+
+    <h2>Inputs</h2>
+    <table>
+        <tr>
+            <td>Cutoff frequency:</td>
+            <td><input type="number" id="fc" value="1000" step="100" min="1"> Hz</td>
+        </tr>
+        <tr>
+            <td>C value:</td>
+            <td><input type="number" id="cval" value="100" step="10" min="1"> nF</td>
+        </tr>
+        <tr>
+            <td>Supply voltage (±):</td>
+            <td><input type="number" id="vcc" value="12" step="1" min="5"> V</td>
+        </tr>
+    </table>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+
+    <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
+
+    <div id="results">
+        <h2>Schematic</h2>
+        <svg width="520" height="300" style="font-family: monospace; font-size: 12px;">
+            <!-- Input -->
+            <text x="10" y="104">In</text>
+            <line x1="30" y1="100" x2="50" y2="100" stroke="black" stroke-width="2"/>
+            
+            <!-- Z1 (C1) -->
+            <line x1="50" y1="90" x2="50" y2="110" stroke="black" stroke-width="2"/>
+            <line x1="58" y1="90" x2="58" y2="110" stroke="black" stroke-width="2"/>
+            <text x="54" y="80" text-anchor="middle" id="schC1">C1</text>
+            <line x1="58" y1="100" x2="120" y2="100" stroke="black" stroke-width="2"/>
+            
+            <!-- Node Vx (between Z1 and Z2) -->
+            <circle cx="120" cy="100" r="3" fill="black"/>
+            
+            <!-- Z2 (C2) -->
+            <line x1="120" y1="100" x2="160" y2="100" stroke="black" stroke-width="2"/>
+            <line x1="160" y1="90" x2="160" y2="110" stroke="black" stroke-width="2"/>
+            <line x1="168" y1="90" x2="168" y2="110" stroke="black" stroke-width="2"/>
+            <text x="164" y="80" text-anchor="middle" id="schC2">C2</text>
+            <line x1="168" y1="100" x2="230" y2="100" stroke="black" stroke-width="2"/>
+            
+            <!-- Node at non-inverting input -->
+            <circle cx="230" cy="100" r="3" fill="black"/>
+            
+            <!-- Z3 (R1) - feedback from output to Vx -->
+            <line x1="120" y1="100" x2="120" y2="50" stroke="black" stroke-width="2"/>
+            <line x1="120" y1="50" x2="150" y2="50" stroke="black" stroke-width="2"/>
+            <rect x="150" y="40" width="60" height="20" fill="none" stroke="black" stroke-width="2"/>
+            <text x="180" y="35" text-anchor="middle" id="schR1">R1</text>
+            <line x1="210" y1="50" x2="350" y2="50" stroke="black" stroke-width="2"/>
+            <line x1="350" y1="50" x2="350" y2="115" stroke="black" stroke-width="2"/>
+            
+            <!-- Z4 (R2) - from non-inverting input to ground -->
+            <line x1="230" y1="100" x2="230" y2="120" stroke="black" stroke-width="2"/>
+            <rect x="220" y="120" width="20" height="60" fill="none" stroke="black" stroke-width="2"/>
+            <text x="205" y="155" id="schR2">R2</text>
+            <line x1="230" y1="180" x2="230" y2="200" stroke="black" stroke-width="2"/>
+            <!-- Ground -->
+            <line x1="220" y1="200" x2="240" y2="200" stroke="black" stroke-width="2"/>
+            <line x1="223" y1="205" x2="237" y2="205" stroke="black" stroke-width="1"/>
+            <line x1="226" y1="210" x2="234" y2="210" stroke="black" stroke-width="1"/>
+            
+            <!-- Op-amp triangle (flipped - inverting on top) -->
+            <polygon points="250,85 250,165 330,125" fill="none" stroke="black" stroke-width="2"/>
+            <text x="260" y="110">−</text>
+            <text x="260" y="145">+</text>
+            
+            <!-- Non-inverting input connection -->
+            <line x1="230" y1="140" x2="250" y2="140" stroke="black" stroke-width="2"/>
+            <line x1="230" y1="100" x2="230" y2="140" stroke="black" stroke-width="2"/>
+            
+            <!-- Inverting input connected to output (unity gain) -->
+            <line x1="250" y1="100" x2="240" y2="100" stroke="black" stroke-width="2"/>
+            <line x1="240" y1="100" x2="240" y2="70" stroke="black" stroke-width="2"/>
+            <line x1="240" y1="70" x2="350" y2="70" stroke="black" stroke-width="2"/>
+            <line x1="350" y1="70" x2="350" y2="115" stroke="black" stroke-width="2"/>
+            
+            <!-- Output -->
+            <line x1="330" y1="125" x2="400" y2="125" stroke="black" stroke-width="2"/>
+            <circle cx="350" cy="125" r="3" fill="black"/>
+            <text x="410" y="129">Out</text>
+            
+            <!-- Power supply labels -->
+            <line x1="290" y1="95" x2="290" y2="75" stroke="black" stroke-width="2"/>
+            <text x="305" y="80" id="schVpos">+V</text>
+            <line x1="290" y1="155" x2="290" y2="175" stroke="black" stroke-width="2"/>
+            <text x="305" y="175" id="schVneg">−V</text>
+            
+            <!-- Info display -->
+            <text x="20" y="250" style="font-weight: bold;">Cutoff:</text>
+            <text x="20" y="270" id="schFc">fc = -- Hz</text>
+            <text x="170" y="250" style="font-weight: bold;">Q:</text>
+            <text x="170" y="270" id="schQ">0.707</text>
+            <text x="300" y="250" style="font-weight: bold;">Slope:</text>
+            <text x="300" y="270">-40 dB/dec</text>
+        </svg>
+
+        <h2>Calculated Values</h2>
+        <table>
+            <tr><td>C1:</td><td id="c1"></td></tr>
+            <tr><td>C2:</td><td id="c2"></td></tr>
+            <tr><td>R1:</td><td id="r1"></td></tr>
+            <tr><td>R2:</td><td id="r2"></td></tr>
+        </table>
+
+        <h2>Filter Response</h2>
+        <table>
+            <tr><td>Cutoff frequency (fc):</td><td id="fcOut"></td></tr>
+            <tr><td>Q factor:</td><td id="qOut"></td></tr>
+            <tr><td>Passband gain:</td><td id="gainOut"></td></tr>
+            <tr><td>Rolloff:</td><td>-40 dB/decade (2nd order)</td></tr>
+        </table>
+
+        <p id="note" style="color: gray;"></p>
+    </div>
+
+    <script src="../common.js"></script>
+    <script>
+        function calculate() {
+            const fc = parseFloat(document.getElementById('fc').value);
+            const cInput = parseFloat(document.getElementById('cval').value) * 1e-9; // convert nF to F
+            const vcc = parseFloat(document.getElementById('vcc').value);
+
+            // For Butterworth response, Q = 0.707 (1/sqrt(2))
+            // 
+            // Sallen-Key highpass unity gain topology:
+            // Z1 = C1 (series input)
+            // Z2 = C2 (series to + input)
+            // Z3 = R1 (feedback from output to Vx node)
+            // Z4 = R2 (from + input to ground)
+            //
+            // Transfer function gives:
+            // fc = 1 / (2 * pi * sqrt(R1 * R2 * C1 * C2))
+            // Q = sqrt(R1 * R2 * C1 * C2) / (C2 * (R1 + R2))
+            //
+            // With equal caps C1 = C2 = C:
+            // fc = 1 / (2 * pi * C * sqrt(R1 * R2))
+            // Q = sqrt(R1 * R2) / (R1 + R2)
+            //
+            // For Butterworth Q = 0.707 = 1/sqrt(2):
+            // Let R2 = R and R1 = m*R
+            // Q = sqrt(m)*R / ((m+1)*R) = sqrt(m)/(m+1) = 1/sqrt(2)
+            // sqrt(2)*sqrt(m) = m + 1
+            // 2m = (m+1)^2 = m^2 + 2m + 1
+            // m^2 + 1 = 0 -- that's wrong, let me redo
+            //
+            // Actually: sqrt(m)/(m+1) = 0.707
+            // sqrt(m) = 0.707(m+1)
+            // m = 0.5(m+1)^2 = 0.5(m^2 + 2m + 1)
+            // 2m = m^2 + 2m + 1
+            // m^2 = -1 -- still wrong
+            //
+            // Let me reconsider. For equal R (R1=R2=R):
+            // Q = R / (2R) = 0.5 -- not Butterworth
+            //
+            // For Butterworth we need Q = 0.707
+            // With equal C, we need: sqrt(R1*R2)/(R1+R2) = 0.707
+            // 
+            // If R1 = k*R2:
+            // sqrt(k)*R2 / ((k+1)*R2) = sqrt(k)/(k+1) = 0.707
+            // sqrt(k) = 0.707*(k+1)
+            // k = 0.5*(k+1)^2
+            // 2k = k^2 + 2k + 1
+            // k^2 = -1 ... still impossible
+            //
+            // Hmm, max Q with this topology and equal C is 0.5 (when R1=R2)
+            // For Q > 0.5 we need C1 ≠ C2
+            //
+            // Let's use C1 = C, C2 = C/2 (C2 = 0.5*C1)
+            // Then with R1 = R2 = R:
+            // fc = 1/(2*pi*sqrt(R*R*C*C/2)) = 1/(2*pi*R*C*sqrt(0.5))
+            // Q = sqrt(R*R*C*C/2) / (C/2 * 2R) = R*C/sqrt(2) / (R*C) = 1/sqrt(2) = 0.707 ✓
+            //
+            // So for Butterworth: C1 = 2*C2, R1 = R2
+
+            const C2 = roundCap(cInput);
+            const C1 = roundCap(2 * cInput);  // C1 = 2 * C2
+            
+            // With C1 = 2*C2 and R1 = R2 = R:
+            // fc = 1 / (2 * pi * R * sqrt(C1 * C2)) = 1 / (2 * pi * R * sqrt(2) * C2)
+            // R = 1 / (2 * pi * fc * sqrt(2) * C2)
+            
+            const rCalc = 1 / (2 * Math.PI * fc * Math.sqrt(2) * C2);
+            const R1 = roundToE24(rCalc);
+            const R2 = roundToE24(rCalc);
+
+            // Calculate actual fc and Q with rounded values
+            const fcActual = 1 / (2 * Math.PI * Math.sqrt(R1 * R2 * C1 * C2));
+            const qActual = Math.sqrt(R1 * R2 * C1 * C2) / (C2 * (R1 + R2));
+
+            let notes = [];
+
+            // Check for extreme resistor values
+            if (R1 > 1e6 || R2 > 1e6) {
+                notes.push('High resistor values may cause noise issues. Try larger capacitors.');
+            }
+            if (R1 < 100 || R2 < 100) {
+                notes.push('Low resistor values may load the op-amp. Try smaller capacitors.');
+            }
+
+            // Warnings
+            const warn = document.getElementById('warning');
+            if (notes.length > 0) {
+                warn.textContent = notes.join(' ');
+                warn.style.display = 'block';
+            } else {
+                warn.style.display = 'none';
+            }
+
+            // Results
+            document.getElementById('results').style.display = 'block';
+            
+            // Table values
+            document.getElementById('c1').textContent = fmtLong(C1, 'F');
+            document.getElementById('c2').textContent = fmtLong(C2, 'F');
+            document.getElementById('r1').textContent = fmtLong(R1, 'Ω');
+            document.getElementById('r2').textContent = fmtLong(R2, 'Ω');
+            
+            // Performance
+            document.getElementById('fcOut').textContent = fmtLong(fcActual, 'Hz');
+            document.getElementById('qOut').textContent = qActual.toFixed(3) + ' (Butterworth = 0.707)';
+            document.getElementById('gainOut').textContent = '1 (unity gain, 0 dB)';
+            
+            document.getElementById('note').textContent = '';
+            
+            // Schematic values
+            document.getElementById('schC1').textContent = fmt(C1, 'F');
+            document.getElementById('schC2').textContent = fmt(C2, 'F');
+            document.getElementById('schR1').textContent = fmt(R1, 'Ω');
+            document.getElementById('schR2').textContent = fmt(R2, 'Ω');
+            document.getElementById('schVpos').textContent = '+' + vcc + 'V';
+            document.getElementById('schVneg').textContent = '−' + vcc + 'V';
+            document.getElementById('schFc').textContent = 'fc = ' + fmt(fcActual, 'Hz');
+            document.getElementById('schQ').textContent = 'Q = ' + qActual.toFixed(2);
+        }
+        window.onload = calculate;
+    </script>
+</body>
+</html>

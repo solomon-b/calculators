@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Inverting Op-Amp Calculator</title>
+</head>
+<body>
+    <h1>Non-Inverting Op-Amp Calculator</h1>
+
+    <h2>Inputs</h2>
+    <table>
+        <tr>
+            <td>Desired gain:</td>
+            <td><input type="number" id="gain" value="10" step="1" min="1"> V/V</td>
+        </tr>
+        <tr>
+            <td>Input (peak):</td>
+            <td><input type="number" id="vin" value="100" step="10" min="1"> mV</td>
+        </tr>
+        <tr>
+            <td>R1 value:</td>
+            <td><input type="number" id="r1" value="10000" step="1000" min="100"> Ω</td>
+        </tr>
+        <tr>
+            <td>Supply voltage (±):</td>
+            <td><input type="number" id="vcc" value="12" step="1" min="5"> V</td>
+        </tr>
+    </table>
+    <br>
+    <button onclick="calculate()">Calculate</button>
+
+    <div id="warning" style="color: red; display: none; margin-top: 10px;"></div>
+
+    <div id="results">
+        <h2>Schematic</h2>
+        <svg width="450" height="340" style="font-family: monospace; font-size: 12px;">
+            <!-- Op-amp triangle -->
+            <polygon points="180,80 180,200 280,140" fill="none" stroke="black" stroke-width="2"/>
+            
+            <!-- +/- labels on op-amp -->
+            <text x="190" y="115">−</text>
+            <text x="190" y="175">+</text>
+            
+            <!-- Inverting input line -->
+            <line x1="140" y1="110" x2="180" y2="110" stroke="black" stroke-width="2"/>
+            <circle cx="140" cy="110" r="3" fill="black"/>
+            
+            <!-- Non-inverting input -->
+            <line x1="30" y1="170" x2="180" y2="170" stroke="black" stroke-width="2"/>
+            <text x="15" y="174">In</text>
+            
+            <!-- R1 (to ground) - with hop over non-inverting input wire -->
+            <line x1="140" y1="110" x2="140" y2="163" stroke="black" stroke-width="2"/>
+            <!-- Hop over the non-inverting wire at y=170 -->
+            <path d="M 140,163 A 7,7 0 0,1 140,177" fill="none" stroke="black" stroke-width="2"/>
+            <line x1="140" y1="177" x2="140" y2="190" stroke="black" stroke-width="2"/>
+            <rect x="130" y="190" width="20" height="50" fill="none" stroke="black" stroke-width="2"/>
+            <text x="160" y="220" id="schR1">R1</text>
+            <line x1="140" y1="240" x2="140" y2="260" stroke="black" stroke-width="2"/>
+            <!-- Ground symbol -->
+            <line x1="130" y1="260" x2="150" y2="260" stroke="black" stroke-width="2"/>
+            <line x1="133" y1="265" x2="147" y2="265" stroke="black" stroke-width="1"/>
+            <line x1="136" y1="270" x2="144" y2="270" stroke="black" stroke-width="1"/>
+            
+            <!-- Rf (feedback resistor) -->
+            <line x1="140" y1="110" x2="140" y2="50" stroke="black" stroke-width="2"/>
+            <line x1="140" y1="50" x2="160" y2="50" stroke="black" stroke-width="2"/>
+            <rect x="160" y="40" width="70" height="20" fill="none" stroke="black" stroke-width="2"/>
+            <text x="195" y="35" text-anchor="middle" id="schRf">Rf</text>
+            <line x1="230" y1="50" x2="310" y2="50" stroke="black" stroke-width="2"/>
+            <line x1="310" y1="50" x2="310" y2="140" stroke="black" stroke-width="2"/>
+            
+            <!-- Output -->
+            <line x1="280" y1="140" x2="350" y2="140" stroke="black" stroke-width="2"/>
+            <circle cx="310" cy="140" r="3" fill="black"/>
+            <text x="360" y="144">Out</text>
+            
+            <!-- Power supply labels -->
+            <line x1="230" y1="100" x2="230" y2="85" stroke="black" stroke-width="2"/>
+            <text x="230" y="80" text-anchor="middle" id="schVpos">+V</text>
+            <line x1="230" y1="180" x2="230" y2="195" stroke="black" stroke-width="2"/>
+            <text x="230" y="210" text-anchor="middle" id="schVneg">−V</text>
+            
+            <!-- Info display -->
+            <text x="20" y="295" style="font-weight: bold;">Gain:</text>
+            <text x="20" y="315" id="schGain">Av = --</text>
+            <text x="150" y="295" style="font-weight: bold;">Output:</text>
+            <text x="150" y="315" id="schOutput">-- mV peak</text>
+            <text x="300" y="295" style="font-weight: bold;">Swing:</text>
+            <text x="300" y="315" id="schSwing">±-- V</text>
+        </svg>
+
+        <h2>Calculated Values</h2>
+        <table>
+            <tr><td>R1 (to ground):</td><td id="r1_out"></td></tr>
+            <tr><td>Rf (feedback):</td><td id="rf"></td></tr>
+        </table>
+
+        <h2>Performance</h2>
+        <table>
+            <tr><td>Gain:</td><td id="gainOut"></td></tr>
+            <tr><td>Input impedance:</td><td id="zinOut"></td></tr>
+            <tr><td>Expected output:</td><td id="voutOut"></td></tr>
+            <tr><td>Max output swing:</td><td id="swingOut"></td></tr>
+        </table>
+
+        <p id="note" style="color: gray;"></p>
+    </div>
+
+    <script src="../common.js"></script>
+    <script>
+        function calculate() {
+            const targetGain = parseFloat(document.getElementById('gain').value);
+            const vin = parseFloat(document.getElementById('vin').value) / 1000;
+            const r1Target = parseFloat(document.getElementById('r1').value);
+            const vcc = parseFloat(document.getElementById('vcc').value);
+
+            // For non-inverting amp: Gain = 1 + Rf / R1
+            // So Rf = (Gain - 1) * R1
+            const r1Rounded = roundToE24(r1Target);
+            const rfCalc = (targetGain - 1) * r1Rounded;
+            const rfRounded = roundToE24(rfCalc);
+
+            // Actual gain with rounded values
+            const actualGain = 1 + rfRounded / r1Rounded;
+
+            // Output calculations
+            const voutPeak = vin * actualGain;
+            
+            // Op-amp output swing is typically Vcc - 1 to 2V for standard op-amps
+            const maxSwing = vcc - 1.5;
+
+            let notes = [];
+
+            // Warnings
+            const warn = document.getElementById('warning');
+            if (voutPeak > maxSwing) {
+                warn.textContent = 'Warning: output (' + fmtLong(voutPeak, 'V') + ' peak) exceeds swing (±' + fmtLong(maxSwing, 'V') + '). Signal will clip.';
+                warn.style.display = 'block';
+            } else {
+                warn.style.display = 'none';
+            }
+
+            // Gain of 1 warning
+            if (targetGain <= 1) {
+                notes.push('For unity gain (buffer), use Rf=0 and omit R1, or just wire output to inverting input.');
+            }
+
+            // High gain warning
+            if (actualGain > 100) {
+                notes.push('High gain may require attention to op-amp GBW product and stability.');
+            }
+
+            // Results
+            document.getElementById('results').style.display = 'block';
+            
+            // Table values
+            document.getElementById('r1_out').textContent = fmtLong(r1Rounded, 'Ω');
+            document.getElementById('rf').textContent = fmtLong(rfRounded, 'Ω');
+            
+            // Performance
+            document.getElementById('gainOut').textContent = '+' + actualGain.toFixed(1) + ' V/V (non-inverting)';
+            document.getElementById('zinOut').textContent = 'Very high (op-amp input impedance)';
+            document.getElementById('voutOut').textContent = fmtLong(voutPeak, 'V') + ' peak';
+            document.getElementById('swingOut').textContent = '±' + fmtLong(maxSwing, 'V');
+            
+            document.getElementById('note').textContent = notes.join(' ');
+            
+            // Schematic values
+            document.getElementById('schR1').textContent = fmt(r1Rounded, 'Ω');
+            document.getElementById('schRf').textContent = fmt(rfRounded, 'Ω');
+            document.getElementById('schVpos').textContent = '+' + vcc + 'V';
+            document.getElementById('schVneg').textContent = '−' + vcc + 'V';
+            document.getElementById('schGain').textContent = 'Av = +' + actualGain.toFixed(1);
+            document.getElementById('schOutput').textContent = fmtLong(voutPeak, 'V') + ' peak';
+            document.getElementById('schSwing').textContent = '±' + fmtLong(maxSwing, 'V');
+        }
+        window.onload = calculate;
+    </script>
+</body>
+</html>
