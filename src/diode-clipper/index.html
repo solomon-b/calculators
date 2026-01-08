@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diode Clipping Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+    </style>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Diode Clipping Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Design diode clipping circuits with realistic soft-knee behavior based on the
+        Shockley diode equation. Supports feedback (soft) and shunt (hard) clipping topologies.
+    </p>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Topology</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Feedback: diodes in op-amp feedback create soft, gradual compression as gain decreases smoothly when diodes conduct. Used in tube screamer style overdrives. Shunt: diodes to ground create harder clipping with sharper knee. Used in distortion pedals.">Clipping type:</td>
+                <td class="py-2">
+                    <select id="topology" onchange="updateTopology()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="feedback" selected>Feedback (soft clipping)</option>
+                        <option value="shunt">Shunt (hard clipping)</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Signal</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Peak input voltage (0 to peak, not peak-to-peak). Guitar pickups typically output 100-500mV peak. Line level is around 1V peak.">Input (peak):</td>
+                <td class="py-2"><input type="number" id="vinPeak" value="0.2" step="0.1" min="0.1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Circuit Values</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr id="rinRow">
+                <td class="py-2 pr-4 cursor-help" title="Input resistor. Sets circuit input impedance and gain (Av = -Rf/Rin). Higher values reduce loading on source but increase noise. 10kΩ is typical for guitar pedals.">Rin:</td>
+                <td class="py-2"><input type="number" id="rin" value="10000" step="1000" min="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr id="rfRow">
+                <td class="py-2 pr-4 cursor-help" title="Feedback resistor with diodes in parallel. Sets gain before clipping (Av = Rf/Rin). When output exceeds diode Vf, the diode conducts and effectively reduces Rf, causing soft gain compression.">Rf:</td>
+                <td class="py-2"><input type="number" id="rf" value="47000" step="1000" min="1000" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr id="rseriesRow" class="hidden">
+                <td class="py-2 pr-4 cursor-help" title="Series resistor before shunt diodes. Limits peak diode current (protects diodes) and softens the clipping knee. Lower values = harder clipping, higher values = softer with more voltage drop.">R series:</td>
+                <td class="py-2"><input type="number" id="rseries" value="1000" step="100" min="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr id="gainRow" class="hidden">
+                <td class="py-2 pr-4 cursor-help" title="Amplifier gain before the shunt diodes. Determines how much the signal is boosted before hitting the clipping stage. Higher gain = more clipping for the same input level.">Pre-clip gain:</td>
+                <td class="py-2"><input type="number" id="preGain" value="10" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V/V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Dual supply rails for the op-amp (e.g., ±12V or ±9V). Sets the maximum possible output swing before op-amp clipping. Diode clipping should occur well before hitting the rails.">Supply (&#177;):</td>
+                <td class="py-2"><input type="number" id="vcc" value="12" step="1" min="5" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Diode Selection</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Symmetric clipping uses identical diodes for both half-cycles, creating equal distortion on positive and negative peaks (even harmonics cancel, odd harmonics dominate). Asymmetric uses different diodes, adding even harmonics for a different tonal character.">Symmetric:</td>
+                <td class="py-2">
+                    <input type="checkbox" id="symmetric" checked onchange="updateSymmetric()" class="mr-2">
+                    <span class="text-sm text-gray-500">Same diodes for +/-</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Diode type for positive output clipping. Silicon (~0.6V) gives standard clipping. Germanium/Schottky (~0.25V) clip earlier with softer knee. LEDs (1.8-3V) allow more headroom before clipping. Each type has different soft-knee characteristics based on its Shockley parameters.">Positive clip:</td>
+                <td class="py-2">
+                    <select id="diodePos" onchange="calculate()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="1N4148" selected>Silicon 1N4148</option>
+                        <option value="1N34A">Germanium 1N34A</option>
+                        <option value="BAT41">Schottky BAT41</option>
+                        <option value="GaAs">Gallium Arsenide</option>
+                        <option value="LED_RED">Red LED</option>
+                        <option value="LED_GREEN">Green LED</option>
+                        <option value="LED_BLUE">Blue LED</option>
+                    </select>
+                </td>
+            </tr>
+            <tr id="diodeNegRow" class="hidden">
+                <td class="py-2 pr-4 cursor-help" title="Diode type for negative output clipping (asymmetric mode). Using a different diode than positive creates unequal clipping thresholds, adding even harmonics to the distortion spectrum. Try silicon + germanium for classic asymmetric overdrive tones.">Negative clip:</td>
+                <td class="py-2">
+                    <select id="diodeNeg" onchange="calculate()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="1N4148" selected>Silicon 1N4148</option>
+                        <option value="1N34A">Germanium 1N34A</option>
+                        <option value="BAT41">Schottky BAT41</option>
+                        <option value="GaAs">Gallium Arsenide</option>
+                        <option value="LED_RED">Red LED</option>
+                        <option value="LED_GREEN">Green LED</option>
+                        <option value="LED_BLUE">Blue LED</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+    </div>
+
+    <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
+
+    <div id="results">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Clipping Characteristics</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            Clipping thresholds based on real diode Shockley parameters. Forward voltage
+            varies with current - shown at 1mA reference and actual signal current.
+        </p>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help" title="Forward voltage of the positive-clipping diode at 1mA reference. This is the standard datasheet Vf. Actual clipping threshold varies with signal current due to the exponential I-V relationship.">D+ Vf (@ 1mA):</td><td id="vfPosRef" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Forward voltage of the negative-clipping diode at 1mA reference. Compare with positive diode to see asymmetry in threshold levels.">D- Vf (@ 1mA):</td><td id="vfNegRef" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Output voltage where positive clipping becomes significant (gain drops to ~95% of linear). Due to the soft knee, clipping is gradual - this marks where compression becomes audible.">Positive clip threshold:</td><td id="clipPos" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Output voltage where negative clipping becomes significant. If asymmetric diodes are used, this differs from positive threshold, creating even-harmonic distortion.">Negative clip threshold:</td><td id="clipNeg" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Maximum current through the diode during peak clipping. Keep below diode ratings (typically 100-300mA for signal diodes). High currents also shift the clipping threshold higher.">Peak diode current:</td><td id="peakCurrent" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Gain Analysis</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help" title="Voltage gain in the linear region before diodes start conducting. For feedback topology: Rf/Rin. This is the 'clean' gain you get with small signals.">Pre-clipping gain:</td><td id="preClipGain" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="What the output would be without any diode clipping (Input × Gain). Compare with clipped output to see how much compression is occurring.">Unclipped output:</td><td id="unclippedOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Actual peak output voltage after soft clipping. The difference from unclipped output shows the amount of compression. Larger difference = more distortion/harmonics.">Clipped output:</td><td id="clippedOut" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Transfer Characteristic</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            Output vs input showing the soft-knee clipping behavior. The gradual rolloff
+            is characteristic of real diodes following the Shockley equation.
+        </p>
+        <div id="transferCurve" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Waveforms</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            Input sine wave (blue) and clipped output (red). Notice the soft knee -
+            real diodes don't clip sharply like ideal limiters.
+        </p>
+        <div id="waveforms" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Harmonic Spectrum</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            Harmonic content of the clipped signal. Symmetric clipping produces odd harmonics (3rd, 5th...),
+            while asymmetric clipping adds even harmonics (2nd, 4th...).
+        </p>
+        <div id="spectrum" class="overflow-x-auto"></div>
+        <div id="thdDisplay" class="text-sm text-gray-600 mt-2"></div>
+
+        <details class="my-4">
+            <summary class="cursor-pointer text-primary font-bold">Diode Parameters Reference</summary>
+            <div class="mt-4 p-4 bg-gray-100 rounded text-sm overflow-x-auto">
+                <p class="mb-2">Shockley diode equation: I = Is × (e<sup>V/(n×Vt)</sup> - 1)</p>
+                <p class="mb-3">Vt (thermal voltage) = 25.85 mV at 25°C</p>
+                <table class="w-full">
+                    <tr class="border-b"><th class="text-left py-1">Type</th><th class="text-right py-1">Is</th><th class="text-right py-1">n</th><th class="text-right py-1">Vf @ 1mA</th></tr>
+                    <tr><td class="py-1">Silicon 1N4148</td><td class="text-right font-mono">2.5 nA</td><td class="text-right font-mono">1.8</td><td class="text-right font-mono">~0.65V</td></tr>
+                    <tr><td class="py-1">Germanium 1N34A</td><td class="text-right font-mono">200 nA</td><td class="text-right font-mono">1.3</td><td class="text-right font-mono">~0.25V</td></tr>
+                    <tr><td class="py-1">Schottky BAT41</td><td class="text-right font-mono">100 nA</td><td class="text-right font-mono">1.05</td><td class="text-right font-mono">~0.27V</td></tr>
+                    <tr><td class="py-1">GaAs</td><td class="text-right font-mono">1 pA</td><td class="text-right font-mono">1.5</td><td class="text-right font-mono">~1.0V</td></tr>
+                    <tr><td class="py-1">Red LED</td><td class="text-right font-mono">1 pA</td><td class="text-right font-mono">2.0</td><td class="text-right font-mono">~1.7V</td></tr>
+                    <tr><td class="py-1">Green LED</td><td class="text-right font-mono">0.1 pA</td><td class="text-right font-mono">2.0</td><td class="text-right font-mono">~2.0V</td></tr>
+                    <tr><td class="py-1">Blue LED</td><td class="text-right font-mono">0.01 pA</td><td class="text-right font-mono">2.0</td><td class="text-right font-mono">~2.7V</td></tr>
+                </table>
+            </div>
+        </details>
+    </div>
+
+    <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
+    <script>
+        // Shockley diode parameters: Is (A), n (ideality factor)
+        const DIODE_PRESETS = {
+            '1N4148':    { Is: 2.5e-9,  n: 1.8,  name: 'Silicon 1N4148' },
+            '1N34A':     { Is: 200e-9,  n: 1.3,  name: 'Germanium 1N34A' },
+            'BAT41':     { Is: 100e-9,  n: 1.05, name: 'Schottky BAT41' },
+            'GaAs':      { Is: 1e-12,   n: 1.5,  name: 'Gallium Arsenide' },
+            'LED_RED':   { Is: 1e-12,   n: 2.0,  name: 'Red LED' },
+            'LED_GREEN': { Is: 0.1e-12, n: 2.0,  name: 'Green LED' },
+            'LED_BLUE':  { Is: 0.01e-12, n: 2.0, name: 'Blue LED' },
+        };
+
+        const Vt = 0.02585; // Thermal voltage at 25°C (kT/q)
+
+        // Diode voltage from current: V = n * Vt * ln(I/Is + 1)
+        function diodeVoltage(I, diode) {
+            if (I <= 0) return 0;
+            return diode.n * Vt * Math.log(I / diode.Is + 1);
+        }
+
+        // Diode current from voltage: I = Is * (exp(V/(n*Vt)) - 1)
+        // Returns { I, dIdV } - current and derivative
+        // Capped at 100mA with smooth rolloff for numerical stability
+        function diodeCurrent(V, diode) {
+            if (V <= 0) return { I: 0, dIdV: diode.Is / (diode.n * Vt) };
+
+            const exponent = V / (diode.n * Vt);
+            const maxExp = 25; // Limit exponential growth
+
+            if (exponent > maxExp) {
+                // Linear extrapolation beyond threshold for stability
+                const Imax = diode.Is * (Math.exp(maxExp) - 1);
+                const dIdVmax = (diode.Is / (diode.n * Vt)) * Math.exp(maxExp);
+                const Vthresh = maxExp * diode.n * Vt;
+                const I = Imax + dIdVmax * (V - Vthresh);
+                return { I: Math.min(I, 1.0), dIdV: I < 1.0 ? dIdVmax : 0 };
+            }
+
+            const expTerm = Math.exp(exponent);
+            const I = diode.Is * (expTerm - 1);
+            const dIdV = (diode.Is / (diode.n * Vt)) * expTerm;
+            return { I, dIdV };
+        }
+
+        // Feedback clipping transfer function
+        // Op-amp with diodes in feedback: soft clipping
+        function feedbackTransfer(vin, rin, rf, diodePos, diodeNeg) {
+            // Linear gain (no diode conduction)
+            const linearGain = -rf / rin;
+            const linearOut = vin * linearGain;
+
+            // Current through input resistor
+            const iIn = vin / rin;
+
+            // For small signals, diodes don't conduct much
+            if (Math.abs(linearOut) < 0.05) {
+                return linearOut;
+            }
+
+            // Smart initial guess: start near expected diode forward voltage
+            // rather than linear output which can be way off
+            const diode = linearOut > 0 ? diodePos : diodeNeg;
+            const sign = linearOut > 0 ? 1 : -1;
+
+            // Estimate: Vf at signal current level
+            const signalCurrent = Math.abs(iIn);
+            const vfEstimate = diodeVoltage(signalCurrent, diode);
+
+            // Start from clamped estimate or linear, whichever is smaller magnitude
+            let vout = sign * Math.min(Math.abs(linearOut), vfEstimate + 0.3);
+
+            // Solve for Vout using Newton-Raphson
+            for (let iter = 0; iter < 50; iter++) {
+                const activeDiode = vout > 0 ? diodePos : diodeNeg;
+                const vDiode = Math.abs(vout);
+
+                // Get diode current and derivative
+                const { I: iDiode, dIdV } = diodeCurrent(vDiode, activeDiode);
+
+                // KCL at virtual ground:
+                // iIn + Vout/Rf + diodeSign × iDiode = 0
+                const diodeSign = vout > 0 ? 1 : -1;
+                const f = iIn + vout / rf + diodeSign * iDiode;
+                const df = 1/rf + dIdV;
+
+                const delta = f / df;
+
+                // Limit step size to prevent overshoot
+                const maxStep = 0.1;
+                const clampedDelta = Math.max(-maxStep, Math.min(maxStep, delta));
+                vout -= clampedDelta;
+
+                if (Math.abs(delta) < 1e-6) break;
+            }
+
+            return vout;
+        }
+
+        // Shunt clipping transfer function
+        // Diodes to ground after gain stage: harder clipping
+        function shuntTransfer(vin, gain, rseries, diodePos, diodeNeg) {
+            // Amplified input
+            const vamplified = vin * gain;
+
+            // For small signals, no clipping
+            if (Math.abs(vamplified) < 0.05) {
+                return vamplified;
+            }
+
+            // Solve for Vout: Vamplified = Vout + I_diode * Rseries
+            const diode = vamplified > 0 ? diodePos : diodeNeg;
+            const sign = vamplified > 0 ? 1 : -1;
+            const vamp = Math.abs(vamplified);
+
+            // Start with estimate near diode Vf
+            const vfEstimate = diodeVoltage(0.001, diode); // Vf at 1mA
+            let vout = Math.min(vamp, vfEstimate + 0.3);
+
+            // Newton-Raphson iteration
+            for (let iter = 0; iter < 50; iter++) {
+                const { I: iDiode, dIdV } = diodeCurrent(vout, diode);
+                const vDrop = iDiode * rseries;
+
+                // f(Vout) = Vout + vDrop - vamp = 0
+                const f = vout + vDrop - vamp;
+                const df = 1 + rseries * dIdV;
+
+                const delta = f / df;
+
+                // Limit step size
+                const maxStep = 0.1;
+                const clampedDelta = Math.max(-maxStep, Math.min(maxStep, delta));
+                vout -= clampedDelta;
+                vout = Math.max(vout, 0);
+
+                if (Math.abs(delta) < 1e-6) break;
+            }
+
+            return sign * vout;
+        }
+
+        function updateTopology() {
+            const topology = document.getElementById('topology').value;
+            const isFeedback = topology === 'feedback';
+
+            document.getElementById('rinRow').classList.toggle('hidden', !isFeedback);
+            document.getElementById('rfRow').classList.toggle('hidden', !isFeedback);
+            document.getElementById('rseriesRow').classList.toggle('hidden', isFeedback);
+            document.getElementById('gainRow').classList.toggle('hidden', isFeedback);
+
+            calculate();
+        }
+
+        function updateSymmetric() {
+            const symmetric = document.getElementById('symmetric').checked;
+            document.getElementById('diodeNegRow').classList.toggle('hidden', symmetric);
+            calculate();
+        }
+
+        function getDiodes() {
+            const posType = document.getElementById('diodePos').value;
+            const symmetric = document.getElementById('symmetric').checked;
+            const negType = symmetric ? posType : document.getElementById('diodeNeg').value;
+
+            return {
+                pos: DIODE_PRESETS[posType],
+                neg: DIODE_PRESETS[negType],
+                posName: posType,
+                negName: negType
+            };
+        }
+
+        function drawFeedbackSchematic(rin, rf, vcc, diodes) {
+            const sch = new Schematic(500, 340);
+
+            // Op-amp (lower to give feedback network room)
+            sch.place('opamp', 'U1', 250, 190);
+
+            // Input resistor
+            sch.place('resistor-h', 'Rin', 100, 170, { label: fmt(rin, 'Ω') });
+
+            // Feedback resistor (high up to clear op-amp)
+            sch.place('resistor-h', 'Rf', 250, 25, { label: fmt(rf, 'Ω') });
+
+            // Diodes in feedback (antiparallel)
+            sch.place('diode-h', 'D1', 250, 70, { label: diodes.posName });
+            sch.place('diode-h', 'D2', 250, 115, { label: diodes.negName, flip: true });
+
+            // Ground for + input
+            sch.place('ground', 'GND', 170, 240);
+
+            // Input
+            sch.label('In', 15, 174);
+            sch.wire({ x: 30, y: 170 }, 'Rin.a');
+
+            // Rin to minus input
+            sch.wire('Rin.b', { x: 170, y: 170 });
+            sch.wire({ x: 170, y: 170 }, 'U1.minus');
+            sch.node(170, 170);
+
+            // Feedback network
+            sch.wire({ x: 170, y: 170 }, { x: 170, y: 25 });
+            sch.wire({ x: 170, y: 25 }, 'Rf.a');
+            sch.wire('Rf.b', { x: 340, y: 25 });
+
+            // Diodes parallel to Rf
+            sch.wire({ x: 170, y: 70 }, 'D1.a');
+            sch.wire('D1.k', { x: 340, y: 70 });
+            sch.wire({ x: 340, y: 115 }, 'D2.k'); // D2 flipped: cathode on left
+            sch.wire('D2.a', { x: 170, y: 115 });
+            sch.node(170, 70);
+            sch.node(170, 115);
+            sch.node(340, 70);
+            sch.node(340, 115);
+
+            // Connect to output
+            sch.wire({ x: 340, y: 25 }, { x: 340, y: 190 });
+            sch.node(340, 25);
+
+            // Plus to ground
+            sch.wire('U1.plus', { x: 170, y: 210 }, { route: 'h-v' });
+            sch.wire({ x: 170, y: 210 }, 'GND.a');
+
+            // Output
+            sch.wire('U1.out', { x: 420, y: 190 });
+            sch.node(340, 190);
+            sch.label('Out', 430, 194);
+
+            // Power
+            sch.wire('U1.vpos', { x: 250, y: 145 });
+            sch.label('+' + vcc + 'V', 260, 142);
+            sch.wire('U1.vneg', { x: 250, y: 235 });
+            sch.label('-' + vcc + 'V', 260, 242);
+
+            // Info
+            sch.label('Soft clipping', 20, 300, { bold: true });
+            sch.label('Diodes limit feedback', 20, 320);
+
+            return sch.toSVG();
+        }
+
+        function drawShuntSchematic(rseries, gain, vcc, diodes) {
+            const sch = new Schematic(400, 220);
+
+            // Gain stage (simple amplifier triangle)
+            sch.place('amplifier', 'A1', 80, 100, { label: '×' + gain });
+
+            // Series resistor
+            sch.place('resistor-h', 'Rs', 180, 100, { label: fmt(rseries, 'Ω') });
+
+            // Diodes to ground (antiparallel)
+            // D1: anode at top (signal), cathode at bottom (ground) - clips positive
+            // D2: flipped - cathode at top (signal), anode at bottom (ground) - clips negative
+            sch.place('diode-v', 'D1', 270, 140, { label: diodes.posName, labelPos: 'left' });
+            sch.place('diode-v', 'D2', 320, 140, { label: diodes.negName, flip: true });
+
+            // Ground
+            sch.place('ground', 'GND', 295, 185);
+
+            // Input
+            sch.label('In', 15, 104);
+            sch.wire({ x: 30, y: 100 }, 'A1.in');
+
+            // Amplifier to series resistor
+            sch.wire('A1.out', 'Rs.a');
+
+            // Series resistor to output node
+            sch.wire('Rs.b', { x: 270, y: 100 });
+            sch.node(270, 100);
+
+            // Diodes from output node to ground
+            sch.wire({ x: 270, y: 100 }, 'D1.a');       // D1 anode at top
+            sch.wire('D1.k', { x: 270, y: 170 });       // D1 cathode to ground line
+            sch.wire({ x: 320, y: 100 }, 'D2.k');       // D2 cathode at top (flipped)
+            sch.wire('D2.a', { x: 320, y: 170 });       // D2 anode to ground line
+            sch.wire({ x: 270, y: 100 }, { x: 320, y: 100 });
+            sch.wire({ x: 270, y: 170 }, { x: 320, y: 170 });
+            sch.node(320, 100);
+            sch.wire({ x: 295, y: 170 }, 'GND.a');
+            sch.node(295, 170);
+
+            // Output
+            sch.wire({ x: 320, y: 100 }, { x: 370, y: 100 });
+            sch.label('Out', 375, 104);
+
+            // Info
+            sch.label('Hard clipping', 20, 200, { bold: true });
+            sch.label('Diodes shunt to GND', 20, 215);
+
+            return sch.toSVG();
+        }
+
+        function drawTransferCurve(transferFn, vinMax) {
+            // Generate transfer curve points
+            const numPoints = 200;
+            const points = [];
+            for (let i = 0; i <= numPoints; i++) {
+                const vin = (i / numPoints - 0.5) * 2 * vinMax;
+                const vout = transferFn(vin);
+                points.push({ x: vin, y: vout });
+            }
+
+            const graph = new TransferGraph();
+            graph.addUnityLine();
+            graph.addCurve(points, { color: '#c33', label: 'Clipped' });
+            return graph.toSVG();
+        }
+
+        function drawWaveforms(transferFn, vinPeak) {
+            // Generate waveform data (2 cycles)
+            const numPoints = 300;
+            const inputPts = [];
+            const outputPts = [];
+
+            for (let i = 0; i <= numPoints; i++) {
+                const t = i / numPoints * 2; // 2 cycles
+                const angle = t * 2 * Math.PI;
+                const vin = vinPeak * Math.sin(angle);
+                const vout = transferFn(vin);
+                inputPts.push({ x: t, y: vin });
+                outputPts.push({ x: t, y: vout });
+            }
+
+            const graph = new WaveformGraph({ xLabel: 'Time (2 cycles)' });
+            graph.addCurve(inputPts, { color: '#2266cc', label: 'Input' });
+            graph.addCurve(outputPts, { color: '#c33', label: 'Output' });
+            return graph.toSVG();
+        }
+
+        // Compute harmonic amplitudes using DFT
+        // Returns array of { harmonic, amplitude, phase, dB } for harmonics 1-maxHarmonic
+        function computeHarmonics(transferFn, vinPeak, maxHarmonic = 10) {
+            const N = 1024; // Samples per cycle
+            const samples = [];
+
+            // Sample one complete cycle of the output
+            for (let i = 0; i < N; i++) {
+                const angle = (i / N) * 2 * Math.PI;
+                const vin = vinPeak * Math.sin(angle);
+                const vout = transferFn(vin);
+                samples.push(vout);
+            }
+
+            // Compute DFT for each harmonic
+            const harmonics = [];
+            let fundamentalAmp = 0;
+
+            for (let k = 1; k <= maxHarmonic; k++) {
+                let real = 0;
+                let imag = 0;
+
+                for (let n = 0; n < N; n++) {
+                    const angle = (2 * Math.PI * k * n) / N;
+                    real += samples[n] * Math.cos(angle);
+                    imag -= samples[n] * Math.sin(angle);
+                }
+
+                real = (2 * real) / N;
+                imag = (2 * imag) / N;
+
+                const amplitude = Math.sqrt(real * real + imag * imag);
+                const phase = Math.atan2(imag, real);
+
+                if (k === 1) fundamentalAmp = amplitude;
+
+                const dB = amplitude > 0 && fundamentalAmp > 0
+                    ? 20 * Math.log10(amplitude / fundamentalAmp)
+                    : -Infinity;
+
+                harmonics.push({
+                    harmonic: k,
+                    amplitude,
+                    phase,
+                    dB: isFinite(dB) ? dB : -100
+                });
+            }
+
+            return harmonics;
+        }
+
+        // Calculate THD from harmonics
+        function calculateTHD(harmonics) {
+            const fundamental = harmonics[0].amplitude;
+            if (fundamental === 0) return 0;
+
+            let sumSquares = 0;
+            for (let i = 1; i < harmonics.length; i++) {
+                sumSquares += harmonics[i].amplitude * harmonics[i].amplitude;
+            }
+
+            return 100 * Math.sqrt(sumSquares) / fundamental;
+        }
+
+        function drawSpectrum(harmonics) {
+            const graph = new BarGraph({
+                xLabel: 'Harmonic',
+                yLabel: 'dB rel. fundamental',
+                yMin: -60,
+                yMax: 0
+            });
+
+            // Add bars with color coding
+            harmonics.forEach(h => {
+                let color;
+                if (h.harmonic === 1) color = '#2266cc';        // fundamental
+                else if (h.harmonic % 2 === 1) color = '#cc6622'; // odd
+                else color = '#8844aa';                          // even
+
+                graph.addBar(h.harmonic, h.dB, { color });
+            });
+
+            graph.addLegend('Odd', '#cc6622');
+            graph.addLegend('Even', '#8844aa');
+
+            return graph.toSVG();
+        }
+
+        function calculate() {
+            const topology = document.getElementById('topology').value;
+            const vinPeak = parseFloat(document.getElementById('vinPeak').value);
+            const vcc = parseFloat(document.getElementById('vcc').value);
+            const diodes = getDiodes();
+
+            let transferFn, preGain, rin, rf, rseries;
+            let schematicSVG;
+
+            if (topology === 'feedback') {
+                rin = parseFloat(document.getElementById('rin').value);
+                rf = parseFloat(document.getElementById('rf').value);
+                preGain = rf / rin;
+
+                transferFn = (vin) => feedbackTransfer(vin, rin, rf, diodes.pos, diodes.neg);
+                schematicSVG = drawFeedbackSchematic(rin, rf, vcc, diodes);
+            } else {
+                rseries = parseFloat(document.getElementById('rseries').value);
+                preGain = parseFloat(document.getElementById('preGain').value);
+
+                transferFn = (vin) => shuntTransfer(vin, preGain, rseries, diodes.pos, diodes.neg);
+                schematicSVG = drawShuntSchematic(rseries, preGain, vcc, diodes);
+            }
+
+            // Calculate clipping characteristics
+            const vfPosRef = diodeVoltage(0.001, diodes.pos); // Vf at 1mA
+            const vfNegRef = diodeVoltage(0.001, diodes.neg);
+
+            // Find actual clipping thresholds (where output deviates significantly from linear)
+            const unclippedPeak = vinPeak * preGain;
+            const clippedPeak = Math.abs(transferFn(vinPeak));
+            const clippedNeg = Math.abs(transferFn(-vinPeak));
+
+            // Estimate clipping threshold (where gain drops to 90%)
+            let clipPosThreshold = unclippedPeak;
+            let clipNegThreshold = unclippedPeak;
+
+            for (let v = 0.01; v < vinPeak; v += 0.01) {
+                const out = Math.abs(transferFn(v));
+                const linear = v * preGain;
+                if (out < linear * 0.95 && clipPosThreshold === unclippedPeak) {
+                    clipPosThreshold = out;
+                }
+            }
+            for (let v = -0.01; v > -vinPeak; v -= 0.01) {
+                const out = Math.abs(transferFn(v));
+                const linear = Math.abs(v) * preGain;
+                if (out < linear * 0.95 && clipNegThreshold === unclippedPeak) {
+                    clipNegThreshold = out;
+                }
+            }
+
+            // Peak diode current
+            let peakDiodeCurrent = 0;
+            if (topology === 'feedback') {
+                peakDiodeCurrent = Math.max(
+                    diodeCurrent(clippedPeak, diodes.pos).I,
+                    diodeCurrent(clippedNeg, diodes.neg).I
+                );
+            } else {
+                const peakVdrop = Math.max(
+                    Math.abs(unclippedPeak - clippedPeak),
+                    Math.abs(unclippedPeak - clippedNeg)
+                );
+                peakDiodeCurrent = peakVdrop / rseries;
+            }
+
+            // Warnings
+            const warnings = [];
+            if (unclippedPeak > vcc - 1) {
+                warnings.push(`Unclipped output (${unclippedPeak.toFixed(1)}V) may exceed supply headroom.`);
+            }
+            if (peakDiodeCurrent > 0.02) {
+                warnings.push(`Peak diode current (${(peakDiodeCurrent * 1000).toFixed(1)}mA) is high - check diode ratings.`);
+            }
+
+            const warn = document.getElementById('warning');
+            if (warnings.length > 0) {
+                warn.innerHTML = warnings.join('<br>');
+                warn.classList.remove('hidden');
+            } else {
+                warn.classList.add('hidden');
+            }
+
+            // Display results
+            document.getElementById('results').style.display = 'block';
+
+            document.getElementById('schematic').innerHTML = schematicSVG;
+
+            document.getElementById('vfPosRef').textContent = fmtLong(vfPosRef, 'V') + ' (' + diodes.pos.name + ')';
+            document.getElementById('vfNegRef').textContent = fmtLong(vfNegRef, 'V') + ' (' + diodes.neg.name + ')';
+            document.getElementById('clipPos').textContent = fmtLong(clipPosThreshold, 'V');
+            document.getElementById('clipNeg').textContent = '-' + fmtLong(clipNegThreshold, 'V');
+            document.getElementById('peakCurrent').textContent = fmtLong(peakDiodeCurrent, 'A');
+
+            document.getElementById('preClipGain').textContent = preGain.toFixed(1) + ' V/V (' + (20 * Math.log10(preGain)).toFixed(1) + ' dB)';
+            document.getElementById('unclippedOut').textContent = fmtLong(unclippedPeak, 'V') + ' peak';
+            document.getElementById('clippedOut').textContent = fmtLong(Math.max(clippedPeak, clippedNeg), 'V') + ' peak';
+
+            // Draw transfer curve
+            document.getElementById('transferCurve').innerHTML = drawTransferCurve(transferFn, vinPeak);
+
+            // Draw waveforms
+            document.getElementById('waveforms').innerHTML = drawWaveforms(transferFn, vinPeak);
+
+            // Compute and draw harmonic spectrum
+            const harmonics = computeHarmonics(transferFn, vinPeak, 10);
+            document.getElementById('spectrum').innerHTML = drawSpectrum(harmonics);
+
+            // Calculate and display THD
+            const thd = calculateTHD(harmonics);
+            document.getElementById('thdDisplay').innerHTML = `<strong>THD:</strong> ${thd.toFixed(2)}% ` +
+                `<span class="text-gray-500">(Total Harmonic Distortion - ratio of harmonic content to fundamental)</span>`;
+        }
+
+        function resetDefaults() {
+            document.getElementById('topology').value = 'feedback';
+            document.getElementById('vinPeak').value = '0.2';
+            document.getElementById('rin').value = '10000';
+            document.getElementById('rf').value = '47000';
+            document.getElementById('rseries').value = '1000';
+            document.getElementById('preGain').value = '10';
+            document.getElementById('vcc').value = '12';
+            document.getElementById('symmetric').checked = true;
+            document.getElementById('diodePos').value = '1N4148';
+            document.getElementById('diodeNeg').value = '1N4148';
+
+            updateTopology();
+            updateSymmetric();
+        }
+
+        window.onload = function() {
+            updateTopology();
+            updateSymmetric();
+            calculate();
+        };
+    </script>
+</body>
+</html>
