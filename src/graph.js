@@ -88,7 +88,7 @@ class Graph {
 
     // Generate SVG
     toSVG() {
-        let svg = `<svg width="${this.width}" height="${this.height}" style="font-family: monospace; font-size: 11px;">`;
+        let svg = `<svg viewBox="0 0 ${this.width} ${this.height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${this.width}px; height: auto; font-family: monospace; font-size: 11px;">`;
 
         // Background
         svg += `<rect x="${this.margin.left}" y="${this.margin.top}" width="${this.plotW}" height="${this.plotH}" fill="#fafafa" stroke="#ccc"/>`;

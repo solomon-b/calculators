@@ -2,27 +2,41 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Electronics Calculators</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
 </head>
-<body>
-    <h1>Electronics Calculators</h1>
-    <h2>Concepts</h2>
-    <ul>
-        <li><a href="impedance/">Impedance Matching</a> - The hidden voltage divider</li>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Electronics Calculators</h1>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-3">Concepts</h2>
+    <ul class="space-y-2 ml-4">
+        <li><a href="impedance/" class="text-primary hover:underline">Impedance Matching</a> <span class="text-gray-500">- The hidden voltage divider</span></li>
     </ul>
 
-    <h2>Transistor Amplifiers</h2>
-    <ul>
-        <li><a href="ce-amplifier/">CE Amplifier</a></li>
-        <li><a href="emitter-follower/">Emitter Follower</a></li>
-        <li><a href="ce-ef-amplifier/">CE + Emitter Follower</a> - Two-stage with direct coupling</li>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-3">Transistor Amplifiers</h2>
+    <ul class="space-y-2 ml-4">
+        <li><a href="ce-amplifier/" class="text-primary hover:underline">CE Amplifier</a></li>
+        <li><a href="emitter-follower/" class="text-primary hover:underline">Emitter Follower</a></li>
+        <li><a href="ce-ef-amplifier/" class="text-primary hover:underline">CE + Emitter Follower</a> <span class="text-gray-500">- Two-stage with direct coupling</span></li>
     </ul>
 
-    <h2>Op-Amp Circuits</h2>
-    <ul>
-        <li><a href="inverting-amplifier/">Inverting Op-Amp</a></li>
-        <li><a href="non-inverting-amplifier/">Non-Inverting Op-Amp</a></li>
-        <li><a href="sallen-key/">Sallen-Key Filter</a></li>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-3">Op-Amp Circuits</h2>
+    <ul class="space-y-2 ml-4">
+        <li><a href="inverting-amplifier/" class="text-primary hover:underline">Inverting Op-Amp</a></li>
+        <li><a href="non-inverting-amplifier/" class="text-primary hover:underline">Non-Inverting Op-Amp</a></li>
+        <li><a href="sallen-key/" class="text-primary hover:underline">Sallen-Key Filter</a></li>
     </ul>
 </body>
 </html>

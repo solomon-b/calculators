@@ -4,60 +4,81 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inverting Op-Amp Calculator</title>
-    <link rel="stylesheet" href="../common.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+    </style>
 </head>
-<body>
-    <h1>Inverting Op-Amp Calculator</h1>
-    <p class="intro">
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Inverting Op-Amp Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
         Design an inverting amplifier using an op-amp. The output is 180° out of phase
         with the input, and gain is set by the ratio of two resistors.
     </p>
 
-    <h2>Inputs</h2>
-    <table>
-        <tr>
-            <td>Desired gain:</td>
-            <td><input type="number" id="gain" value="10" step="1" min="1"> V/V</td>
-        </tr>
-        <tr>
-            <td>Input (peak):</td>
-            <td><input type="number" id="vin" value="100" step="10" min="1"> mV</td>
-        </tr>
-        <tr>
-            <td>Input impedance (Rin):</td>
-            <td><input type="number" id="rin" value="10000" step="1000" min="100"> Ω</td>
-        </tr>
-        <tr>
-            <td>Supply voltage (±):</td>
-            <td><input type="number" id="vcc" value="12" step="1" min="5"> V</td>
-        </tr>
-    </table>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Inputs</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4">Desired gain:</td>
+                <td class="py-2"><input type="number" id="gain" value="10" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V/V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4">Input (peak):</td>
+                <td class="py-2"><input type="number" id="vin" value="100" step="10" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mV</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4">Input impedance (Rin):</td>
+                <td class="py-2"><input type="number" id="rin" value="10000" step="1000" min="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4">Supply voltage (±):</td>
+                <td class="py-2"><input type="number" id="vcc" value="12" step="1" min="5" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+        </table>
+    </div>
 
-    <button onclick="calculate()">Calculate</button>
-    <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+    </div>
 
-    <div id="warning" style="display: none;"></div>
+    <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
 
     <div id="results">
-        <h2>Schematic</h2>
-        <div id="schematic"></div>
-        
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
 
-        <h2>Calculated Values</h2>
-        <table>
-            <tr><td>Rin (input):</td><td id="rin_out"></td></tr>
-            <tr><td>Rf (feedback):</td><td id="rf"></td></tr>
-        </table>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Calculated Values</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4">Rin (input):</td><td id="rin_out" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Rf (feedback):</td><td id="rf" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
 
-        <h2>Performance</h2>
-        <table>
-            <tr><td>Gain:</td><td id="gainOut"></td></tr>
-            <tr><td>Input impedance:</td><td id="zinOut"></td></tr>
-            <tr><td>Expected output:</td><td id="voutOut"></td></tr>
-            <tr><td>Max output swing:</td><td id="swingOut"></td></tr>
-        </table>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Performance</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4">Gain:</td><td id="gainOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Input impedance:</td><td id="zinOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Expected output:</td><td id="voutOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Max output swing:</td><td id="swingOut" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
 
-        <p id="note" style="color: gray;"></p>
+        <p id="note" class="text-gray-500 mt-4"></p>
     </div>
 
     <script src="../common.js"></script>
@@ -146,9 +167,9 @@
             const warn = document.getElementById('warning');
             if (voutPeak > maxSwing) {
                 warn.textContent = 'Warning: output (' + voutPeak.toFixed(2) + 'V peak) exceeds swing (±' + maxSwing.toFixed(1) + 'V). Signal will clip.';
-                warn.style.display = 'block';
+                warn.classList.remove('hidden');
             } else {
-                warn.style.display = 'none';
+                warn.classList.add('hidden');
             }
 
             // High gain warning

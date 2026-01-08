@@ -4,212 +4,235 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CE Amplifier Calculator</title>
-    <link rel="stylesheet" href="../common.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        /* Styles for dynamically generated SVG */
+        svg text { font-family: ui-monospace, monospace; }
+    </style>
 </head>
-<body>
-    <h1>CE Amplifier Calculator</h1>
-    <p class="intro">
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">CE Amplifier Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
         Design a common-emitter amplifier with voltage divider biasing.
         This topology trades some gain for stable, predictable operation across transistor variations.
     </p>
 
-    <h2>Inputs</h2>
-    <table>
-        <tr>
-            <td title="Supply voltage for the amplifier">Vcc:</td>
-            <td><input type="number" id="vcc" value="10" step="0.1" min="1"> V</td>
-        </tr>
-        <tr>
-            <td title="Voltage gain of the transistor stage (Vout/Vin)">Desired gain (Av):</td>
-            <td><input type="number" id="gain" value="5" step="1" min="1"> V/V</td>
-        </tr>
-        <tr>
-            <td title="Peak amplitude of your input signal (used to check for clipping)">Input (peak):</td>
-            <td><input type="number" id="vin" value="100" step="10" min="1"> mV</td>
-        </tr>
-        <tr>
-            <td title="Output impedance of whatever drives this amplifier. Higher values reduce effective gain.">Source impedance:</td>
-            <td><input type="number" id="zsource" value="0" step="100" min="0"> Ω</td>
-        </tr>
-        <tr>
-            <td title="Lowest frequency you need to amplify. Sets the coupling capacitor sizes.">Low frequency (-3dB):</td>
-            <td><input type="number" id="fLow" value="20" step="1" min="1"> Hz</td>
-        </tr>
-        <tr>
-            <td title="Resistance of whatever this amplifier drives. Lower values reduce effective gain. Leave empty for open circuit.">Load (optional):</td>
-            <td><input type="number" id="rload" value="" placeholder="∞" step="1000" min="100"> Ω</td>
-        </tr>
-        <tr>
-            <td title="Bypassing Re with a capacitor increases AC gain but makes it less predictable and more dependent on transistor parameters.">Bypass Re:</td>
-            <td>
-                <select id="bypassMode">
-                    <option value="none">No bypass (stable gain)</option>
-                    <option value="full">Full bypass (max gain)</option>
-                </select>
-            </td>
-        </tr>
-        <tr>
-            <td title="DC current through the collector. Higher values give more bandwidth but use more power.">Collector current (Ic):</td>
-            <td><input type="number" id="ic" value="1" step="0.5" min="0.1" max="20"> mA</td>
-        </tr>
-        <tr>
-            <td title="Current gain of your transistor. Find this in the datasheet. Typical values: 100-300.">β (hFE):</td>
-            <td><input type="number" id="beta" value="100" step="10" min="20"></td>
-        </tr>
-        <tr>
-            <td title="Transition frequency - where the transistor's current gain drops to 1. Limits high-frequency response.">fT (transistor):</td>
-            <td><input type="number" id="ft" value="150" step="50" min="10"> MHz</td>
-        </tr>
-    </table>
-    <p class="hint">Hover over labels for explanations.</p>
-    <button onclick="calculate()">Calculate</button>
-    <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Inputs</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Supply voltage for the amplifier">Vcc:</td>
+                <td class="py-2"><input type="number" id="vcc" value="10" step="0.1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Voltage gain of the transistor stage (Vout/Vin)">Desired gain (Av):</td>
+                <td class="py-2"><input type="number" id="gain" value="5" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V/V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Peak amplitude of your input signal (used to check for clipping)">Input (peak):</td>
+                <td class="py-2"><input type="number" id="vin" value="100" step="10" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mV</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Output impedance of whatever drives this amplifier. Higher values reduce effective gain.">Source impedance:</td>
+                <td class="py-2"><input type="number" id="zsource" value="0" step="100" min="0" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Lowest frequency you need to amplify. Sets the coupling capacitor sizes.">Low frequency (-3dB):</td>
+                <td class="py-2"><input type="number" id="fLow" value="20" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> Hz</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Resistance of whatever this amplifier drives. Lower values reduce effective gain. Leave empty for open circuit.">Load (optional):</td>
+                <td class="py-2"><input type="number" id="rload" value="" placeholder="&#8734;" step="1000" min="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Bypassing Re with a capacitor increases AC gain but makes it less predictable and more dependent on transistor parameters.">Bypass Re:</td>
+                <td class="py-2">
+                    <select id="bypassMode" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="none">No bypass (stable gain)</option>
+                        <option value="full">Full bypass (max gain)</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="DC current through the collector. Higher values give more bandwidth but use more power.">Collector current (Ic):</td>
+                <td class="py-2"><input type="number" id="ic" value="1" step="0.5" min="0.1" max="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mA</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain of your transistor. Find this in the datasheet. Typical values: 100-300.">&#946; (hFE):</td>
+                <td class="py-2"><input type="number" id="beta" value="100" step="10" min="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"></td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Transition frequency - where the transistor's current gain drops to 1. Limits high-frequency response.">fT (transistor):</td>
+                <td class="py-2"><input type="number" id="ft" value="150" step="50" min="10" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> MHz</td>
+            </tr>
+        </table>
+    </div>
+    <p class="text-sm text-gray-400 mt-2">Hover over labels for explanations.</p>
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+    </div>
 
-    <div id="warning" style="display: none;"></div>
+    <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
 
     <div id="results">
-        <h2>Schematic</h2>
-        <div id="schematic"></div>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
 
-        <h2>Calculated Values</h2>
-        <p class="section-note">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Calculated Values</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
             Component values rounded to standard E24 series. The bias resistors (R1, R2) set the DC operating point.
         </p>
-        <table>
-            <tr><td title="Upper bias resistor, sets base voltage together with R2">R1 (upper bias):</td><td id="r1"></td></tr>
-            <tr><td title="Lower bias resistor, forms voltage divider with R1">R2 (lower bias):</td><td id="r2"></td></tr>
-            <tr><td title="Collector resistor, converts collector current changes to voltage changes">Rc (collector):</td><td id="rc"></td></tr>
-            <tr><td title="Emitter resistor, provides negative feedback for stability. Gain ≈ Rc/Re">Re (emitter):</td><td id="re"></td></tr>
-            <tr><td title="Input coupling capacitor, blocks DC while passing AC signal">Cin (input):</td><td id="cin"></td></tr>
-            <tr><td title="Output coupling capacitor, blocks DC bias from reaching the load">Cout (output):</td><td id="cout"></td></tr>
-            <tr><td title="Emitter bypass capacitor, shorts Re at AC frequencies to increase gain">Ce (bypass):</td><td id="ce"></td></tr>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Upper bias resistor, sets base voltage together with R2">R1 (upper bias):</td><td id="r1" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Lower bias resistor, forms voltage divider with R1">R2 (lower bias):</td><td id="r2" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Collector resistor, converts collector current changes to voltage changes">Rc (collector):</td><td id="rc" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Emitter resistor, provides negative feedback for stability. Gain &#8776; Rc/Re">Re (emitter):</td><td id="re" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Input coupling capacitor, blocks DC while passing AC signal">Cin (input):</td><td id="cin" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Output coupling capacitor, blocks DC bias from reaching the load">Cout (output):</td><td id="cout" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Emitter bypass capacitor, shorts Re at AC frequencies to increase gain">Ce (bypass):</td><td id="ce" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
 
-        <h2>Gain Analysis</h2>
-        <p class="section-note">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Gain Analysis</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
             The gain you actually get depends on source and load impedances. The transistor provides its gain,
             but some signal is lost at the input (voltage divider with source impedance) and output (voltage divider with load).
         </p>
-        <table>
-            <tr><td title="How much resistance the amplifier presents to the signal source. Higher is generally better.">Input impedance (Zin):</td><td id="zin"></td></tr>
-            <tr><td title="How much resistance the amplifier presents to its load. Lower means it can drive heavier loads.">Output impedance (Zout):</td><td id="zout"></td></tr>
-            <tr><td title="The gain of the transistor stage itself: Rc / (Re + re')">Transistor gain (Av):</td><td id="transGain"></td></tr>
-            <tr><td title="Signal loss at input due to source impedance. Zin / (Zin + Zsource)">Input attenuation:</td><td id="inputAtten"></td></tr>
-            <tr><td title="Signal loss at output due to load. Rload / (Rload + Zout)">Output attenuation:</td><td id="outputAtten"></td></tr>
-            <tr><td title="What you actually measure: transistor gain × input attenuation × output attenuation"><b>Effective gain:</b></td><td id="effectiveGain"></td></tr>
-            <tr><td>Expected output:</td><td id="expectedOut"></td></tr>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="How much resistance the amplifier presents to the signal source. Higher is generally better.">Input impedance (Zin):</td><td id="zin" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="How much resistance the amplifier presents to its load. Lower means it can drive heavier loads.">Output impedance (Zout):</td><td id="zout" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="The gain of the transistor stage itself: Rc / (Re + re')">Transistor gain (Av):</td><td id="transGain" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Signal loss at input due to source impedance. Zin / (Zin + Zsource)">Input attenuation:</td><td id="inputAtten" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Signal loss at output due to load. Rload / (Rload + Zout)">Output attenuation:</td><td id="outputAtten" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400 font-bold" title="What you actually measure: transistor gain &#215; input attenuation &#215; output attenuation">Effective gain:</td><td id="effectiveGain" class="py-2 text-right font-mono font-bold"></td></tr>
+                <tr><td class="py-2 pr-4">Expected output:</td><td id="expectedOut" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
 
-        <p id="note" style="color: #c60;"></p>
+        <p id="note" class="text-amber-600 mt-4"></p>
 
-        <h2>Input / Output Waveforms</h2>
-        <p class="section-note">
-            The CE amplifier inverts the signal (180° phase shift) and amplifies it.
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Input / Output Waveforms</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            The CE amplifier inverts the signal (180&#176; phase shift) and amplifies it.
             If the output exceeds the available swing, it clips (flattens) at the peaks.
         </p>
-        <div id="waveforms"></div>
+        <div id="waveforms" class="overflow-x-auto"></div>
 
-        <h2>Load Lines</h2>
-        <p class="section-note">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Load Lines</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
             The DC load line (solid) shows the operating path set by Rc + Re.
             When a load is connected, the AC load line (dashed) is steeper because AC sees Rc || Rload.
             The Q-point sits on both lines - DC sets the bias, AC determines the signal swing.
         </p>
-        <div id="loadLine"></div>
+        <div id="loadLine" class="overflow-x-auto"></div>
 
-        <h2>Frequency Response</h2>
-        <p class="section-note">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Frequency Response</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
             Low frequencies are limited by coupling capacitors (Cin, Cout) and bypass capacitor (Ce).
-            High frequencies are limited by the transistor's internal capacitances and β rolloff.
+            High frequencies are limited by the transistor's internal capacitances and &#946; rolloff.
         </p>
-        <div id="freqResponse"></div>
+        <div id="freqResponse" class="overflow-x-auto"></div>
 
-        <h2>Design Formulas</h2>
-        <details>
-            <summary>Click to show step-by-step design procedure</summary>
-            <div>
-                <h3>Step 1: Set the DC Operating Point</h3>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Design Formulas</h2>
+        <details class="my-4">
+            <summary class="cursor-pointer text-primary font-bold">Click to show step-by-step design procedure</summary>
+            <div class="mt-4 p-4 bg-gray-100 rounded text-sm">
+                <h3 class="text-base font-semibold text-gray-600 mt-0 mb-2">Step 1: Set the DC Operating Point</h3>
                 <p>Choose emitter voltage for thermal stability (typically 10% of Vcc or 1V minimum):</p>
-                <code class="formula">
-                    V<sub>E</sub> = max(0.1 × V<sub>CC</sub>, 1V)<br>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    V<sub>E</sub> = max(0.1 &#215; V<sub>CC</sub>, 1V)<br>
                     V<sub>B</sub> = V<sub>E</sub> + 0.7V
                 </code>
 
-                <h3>Step 2: Calculate Emitter Resistor</h3>
-                <code class="formula">
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 2: Calculate Emitter Resistor</h3>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     R<sub>E</sub> = V<sub>E</sub> / I<sub>C</sub>
                 </code>
 
-                <h3>Step 3: Calculate Intrinsic Emitter Resistance</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 3: Calculate Intrinsic Emitter Resistance</h3>
                 <p>This is the transistor's internal resistance, temperature dependent:</p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     r<sub>e</sub>' = 26mV / I<sub>C</sub> = 0.026 / I<sub>C</sub>
                 </code>
 
-                <h3>Step 4: Calculate Collector Resistor for Desired Gain</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 4: Calculate Collector Resistor for Desired Gain</h3>
                 <p><b>Without bypass (stable gain):</b></p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     A<sub>v</sub> = R<sub>C</sub> / (R<sub>E</sub> + r<sub>e</sub>')<br>
-                    ∴ R<sub>C</sub> = A<sub>v</sub> × (R<sub>E</sub> + r<sub>e</sub>')
+                    &#8756; R<sub>C</sub> = A<sub>v</sub> &#215; (R<sub>E</sub> + r<sub>e</sub>')
                 </code>
                 <p><b>With full bypass (maximum gain):</b></p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     A<sub>v</sub> = R<sub>C</sub> / r<sub>e</sub>'<br>
-                    ∴ R<sub>C</sub> = A<sub>v</sub> × r<sub>e</sub>'
+                    &#8756; R<sub>C</sub> = A<sub>v</sub> &#215; r<sub>e</sub>'
                 </code>
 
-                <h3>Step 5: Verify Operating Point</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 5: Verify Operating Point</h3>
                 <p>Check that V<sub>C</sub> leaves room for the transistor to operate:</p>
-                <code class="formula">
-                    V<sub>C</sub> = V<sub>CC</sub> - I<sub>C</sub> × R<sub>C</sub><br>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    V<sub>C</sub> = V<sub>CC</sub> - I<sub>C</sub> &#215; R<sub>C</sub><br>
                     Requirement: V<sub>C</sub> > V<sub>E</sub> + 0.3V (active region)
                 </code>
 
-                <h3>Step 6: Calculate Bias Resistors</h3>
-                <p>Use the "stiff divider" rule - divider current should be ~10× base current:</p>
-                <code class="formula">
-                    I<sub>B</sub> = I<sub>C</sub> / β<br>
-                    I<sub>divider</sub> = 10 × I<sub>B</sub><br>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 6: Calculate Bias Resistors</h3>
+                <p>Use the "stiff divider" rule - divider current should be ~10&#215; base current:</p>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    I<sub>B</sub> = I<sub>C</sub> / &#946;<br>
+                    I<sub>divider</sub> = 10 &#215; I<sub>B</sub><br>
                     R<sub>total</sub> = V<sub>CC</sub> / I<sub>divider</sub><br>
-                    R<sub>2</sub> = (V<sub>B</sub> / V<sub>CC</sub>) × R<sub>total</sub><br>
+                    R<sub>2</sub> = (V<sub>B</sub> / V<sub>CC</sub>) &#215; R<sub>total</sub><br>
                     R<sub>1</sub> = R<sub>total</sub> - R<sub>2</sub>
                 </code>
 
-                <h3>Step 7: Calculate Input Impedance</h3>
-                <code class="formula">
-                    Z<sub>in(base)</sub> = β × (R<sub>E</sub> + r<sub>e</sub>') &nbsp;&nbsp;<i>[without bypass]</i><br>
-                    Z<sub>in(base)</sub> = β × r<sub>e</sub>' &nbsp;&nbsp;<i>[with bypass]</i><br>
-                    Z<sub>in</sub> = R<sub>1</sub> ∥ R<sub>2</sub> ∥ Z<sub>in(base)</sub>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 7: Calculate Input Impedance</h3>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    Z<sub>in(base)</sub> = &#946; &#215; (R<sub>E</sub> + r<sub>e</sub>') &nbsp;&nbsp;<i>[without bypass]</i><br>
+                    Z<sub>in(base)</sub> = &#946; &#215; r<sub>e</sub>' &nbsp;&nbsp;<i>[with bypass]</i><br>
+                    Z<sub>in</sub> = R<sub>1</sub> &#8741; R<sub>2</sub> &#8741; Z<sub>in(base)</sub>
                 </code>
 
-                <h3>Step 8: Calculate Coupling Capacitors</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 8: Calculate Coupling Capacitors</h3>
                 <p>Size for -3dB at the desired low frequency cutoff:</p>
-                <code class="formula">
-                    C<sub>in</sub> = 1 / (2π × f<sub>low</sub> × Z<sub>in</sub>)<br>
-                    C<sub>out</sub> = 1 / (2π × f<sub>low</sub> × R<sub>load</sub>)
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    C<sub>in</sub> = 1 / (2&#960; &#215; f<sub>low</sub> &#215; Z<sub>in</sub>)<br>
+                    C<sub>out</sub> = 1 / (2&#960; &#215; f<sub>low</sub> &#215; R<sub>load</sub>)
                 </code>
 
-                <h3>Step 9: Calculate Bypass Capacitor (if used)</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 9: Calculate Bypass Capacitor (if used)</h3>
                 <p>Must have low impedance at lowest frequency of interest:</p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     X<sub>Ce</sub> << R<sub>E</sub> at f<sub>low</sub><br>
-                    C<sub>E</sub> ≈ 10 / (2π × f<sub>low</sub> × R<sub>E</sub>)
+                    C<sub>E</sub> &#8776; 10 / (2&#960; &#215; f<sub>low</sub> &#215; R<sub>E</sub>)
                 </code>
 
-                <h3>Step 10: Calculate Effective Gain</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 10: Calculate Effective Gain</h3>
                 <p>Account for loading at input and output:</p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     Input attenuation = Z<sub>in</sub> / (Z<sub>in</sub> + Z<sub>source</sub>)<br>
                     Output attenuation = R<sub>load</sub> / (R<sub>load</sub> + R<sub>C</sub>)<br>
-                    Effective gain = A<sub>v</sub> × input atten × output atten
+                    Effective gain = A<sub>v</sub> &#215; input atten &#215; output atten
                 </code>
 
-                <h3>Key Relationships</h3>
-                <ul>
-                    <li><b>Output impedance:</b> Z<sub>out</sub> ≈ R<sub>C</sub></li>
-                    <li><b>Voltage swing:</b> Limited by V<sub>C</sub> − V<sub>E</sub> (down) and V<sub>CC</sub> − V<sub>C</sub> (up)</li>
-                    <li><b>AC load line slope:</b> −1/(R<sub>C</sub> ∥ R<sub>load</sub>)</li>
-                    <li><b>DC load line slope:</b> −1/(R<sub>C</sub> + R<sub>E</sub>)</li>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Key Relationships</h3>
+                <ul class="list-disc ml-5 space-y-1">
+                    <li><b>Output impedance:</b> Z<sub>out</sub> &#8776; R<sub>C</sub></li>
+                    <li><b>Voltage swing:</b> Limited by V<sub>C</sub> &#8722; V<sub>E</sub> (down) and V<sub>CC</sub> &#8722; V<sub>C</sub> (up)</li>
+                    <li><b>AC load line slope:</b> &#8722;1/(R<sub>C</sub> &#8741; R<sub>load</sub>)</li>
+                    <li><b>DC load line slope:</b> &#8722;1/(R<sub>C</sub> + R<sub>E</sub>)</li>
                 </ul>
             </div>
         </details>
@@ -446,7 +469,7 @@
             const xScale = (t) => margin.left + (t / cycles) * plotW;
             const yScale = (v) => margin.top + plotH / 2 - (v / maxV) * (plotH / 2);
 
-            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
 
             // Background
             svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
@@ -551,7 +574,7 @@
             const xScale = (v) => margin.left + (v / vceMax) * plotW;
             const yScale = (i) => margin.top + plotH - (i / icMax) * plotH;
 
-            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
 
             // Background
             svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
@@ -743,9 +766,9 @@
             }
             if (warnings.length > 0) {
                 warn.innerHTML = warnings.join('<br><br>');
-                warn.style.display = 'block';
+                warn.classList.remove('hidden');
             } else {
-                warn.style.display = 'none';
+                warn.classList.add('hidden');
             }
 
             // Results

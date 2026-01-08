@@ -4,215 +4,239 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CE + Emitter Follower Calculator</title>
-    <link rel="stylesheet" href="../common.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+    </style>
 </head>
-<body>
-    <h1>CE + Emitter Follower Calculator</h1>
-    <p class="intro">
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">CE + Emitter Follower Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
         Design a two-stage amplifier with a Common Emitter (CE) stage directly coupled to an Emitter Follower (EF).
         The CE provides voltage gain while the EF provides current gain and low output impedance.
         Direct coupling eliminates an inter-stage capacitor and extends low-frequency response.
     </p>
 
-    <h2>Inputs</h2>
-    <table>
-        <tr>
-            <td title="Supply voltage for the amplifier">Vcc:</td>
-            <td><input type="number" id="vcc" value="12" step="0.1" min="5"> V</td>
-        </tr>
-        <tr>
-            <td title="Voltage gain of the CE stage (Vout/Vin)">Desired gain (Av):</td>
-            <td><input type="number" id="gain" value="10" step="1" min="1"> V/V</td>
-        </tr>
-        <tr>
-            <td title="Peak amplitude of your input signal (used to check for clipping)">Input (peak):</td>
-            <td><input type="number" id="vin" value="50" step="10" min="1"> mV</td>
-        </tr>
-        <tr>
-            <td title="Output impedance of whatever drives this amplifier">Source impedance:</td>
-            <td><input type="number" id="zsource" value="1000" step="100" min="0"> &Omega;</td>
-        </tr>
-        <tr>
-            <td title="Lowest frequency you need to amplify. Sets the coupling capacitor sizes.">Low frequency (-3dB):</td>
-            <td><input type="number" id="fLow" value="20" step="1" min="1"> Hz</td>
-        </tr>
-        <tr>
-            <td title="Resistance of whatever this amplifier drives">Load resistance:</td>
-            <td><input type="number" id="rload" value="600" step="100" min="10"> &Omega;</td>
-        </tr>
-        <tr>
-            <td title="Bypassing Re1 with a capacitor increases AC gain">Bypass Re1:</td>
-            <td>
-                <select id="bypassMode">
-                    <option value="none">No bypass (stable gain)</option>
-                    <option value="full">Full bypass (max gain)</option>
-                </select>
-            </td>
-        </tr>
-        <tr>
-            <td title="DC current through Q1's collector">Q1 Collector current (Ic1):</td>
-            <td><input type="number" id="ic1" value="1" step="0.5" min="0.1" max="20"> mA</td>
-        </tr>
-        <tr>
-            <td title="DC current through Q2's emitter">Q2 Emitter current (Ie2):</td>
-            <td><input type="number" id="ie2" value="5" step="1" min="0.5" max="50"> mA</td>
-        </tr>
-        <tr>
-            <td title="Current gain of Q1. Find this in the datasheet.">Q1 &beta; (hFE):</td>
-            <td><input type="number" id="beta1" value="100" step="10" min="20"></td>
-        </tr>
-        <tr>
-            <td title="Current gain of Q2. Find this in the datasheet.">Q2 &beta; (hFE):</td>
-            <td><input type="number" id="beta2" value="100" step="10" min="20"></td>
-        </tr>
-        <tr>
-            <td title="Transition frequency - where the transistor's current gain drops to 1">fT (transistors):</td>
-            <td><input type="number" id="ft" value="150" step="50" min="10"> MHz</td>
-        </tr>
-    </table>
-    <p class="hint">Hover over labels for explanations.</p>
-    <button onclick="calculate()">Calculate</button>
-    <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Inputs</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Supply voltage for the amplifier">Vcc:</td>
+                <td class="py-2"><input type="number" id="vcc" value="12" step="0.1" min="5" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Voltage gain of the CE stage (Vout/Vin)">Desired gain (Av):</td>
+                <td class="py-2"><input type="number" id="gain" value="10" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V/V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Peak amplitude of your input signal (used to check for clipping)">Input (peak):</td>
+                <td class="py-2"><input type="number" id="vin" value="50" step="10" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mV</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Output impedance of whatever drives this amplifier">Source impedance:</td>
+                <td class="py-2"><input type="number" id="zsource" value="1000" step="100" min="0" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Lowest frequency you need to amplify. Sets the coupling capacitor sizes.">Low frequency (-3dB):</td>
+                <td class="py-2"><input type="number" id="fLow" value="20" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> Hz</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Resistance of whatever this amplifier drives">Load resistance:</td>
+                <td class="py-2"><input type="number" id="rload" value="600" step="100" min="10" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Bypassing Re1 with a capacitor increases AC gain">Bypass Re1:</td>
+                <td class="py-2">
+                    <select id="bypassMode" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="none">No bypass (stable gain)</option>
+                        <option value="full">Full bypass (max gain)</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="DC current through Q1's collector">Q1 Collector current (Ic1):</td>
+                <td class="py-2"><input type="number" id="ic1" value="1" step="0.5" min="0.1" max="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mA</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="DC current through Q2's emitter">Q2 Emitter current (Ie2):</td>
+                <td class="py-2"><input type="number" id="ie2" value="5" step="1" min="0.5" max="50" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mA</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain of Q1. Find this in the datasheet.">Q1 &#946; (hFE):</td>
+                <td class="py-2"><input type="number" id="beta1" value="100" step="10" min="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"></td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain of Q2. Find this in the datasheet.">Q2 &#946; (hFE):</td>
+                <td class="py-2"><input type="number" id="beta2" value="100" step="10" min="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"></td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Transition frequency - where the transistor's current gain drops to 1">fT (transistors):</td>
+                <td class="py-2"><input type="number" id="ft" value="150" step="50" min="10" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> MHz</td>
+            </tr>
+        </table>
+    </div>
+    <p class="text-sm text-gray-400 mt-2">Hover over labels for explanations.</p>
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+    </div>
 
-    <div id="warning" style="display: none;"></div>
+    <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
 
     <div id="results">
-        <h2>Schematic</h2>
-        <div id="schematic"></div>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
 
-        <h2>Calculated Values</h2>
-        <p class="section-note">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Calculated Values</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
             Component values rounded to standard E24 series. Q1 uses voltage divider bias,
             Q2 is biased directly from Q1's collector.
         </p>
-        <table>
-            <tr><th colspan="2">CE Stage (Q1)</th></tr>
-            <tr><td title="Upper bias resistor for Q1">R1 (upper bias):</td><td id="r1"></td></tr>
-            <tr><td title="Lower bias resistor for Q1">R2 (lower bias):</td><td id="r2"></td></tr>
-            <tr><td title="Collector resistor for Q1">Rc (collector):</td><td id="rc"></td></tr>
-            <tr><td title="Emitter resistor for Q1">Re1 (emitter):</td><td id="re1"></td></tr>
-            <tr><td title="Bypass capacitor for Re1 (if used)">Ce (bypass):</td><td id="ce"></td></tr>
-            <tr><th colspan="2">EF Stage (Q2)</th></tr>
-            <tr><td title="Emitter resistor for Q2">Re2 (emitter):</td><td id="re2"></td></tr>
-            <tr><th colspan="2">Coupling Capacitors</th></tr>
-            <tr><td title="Input coupling capacitor">Cin (input):</td><td id="cin"></td></tr>
-            <tr><td title="Output coupling capacitor">Cout (output):</td><td id="cout"></td></tr>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><th colspan="2" class="py-2 pr-4 text-left font-semibold text-gray-700">CE Stage (Q1)</th></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Upper bias resistor for Q1">R1 (upper bias):</td><td id="r1" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Lower bias resistor for Q1">R2 (lower bias):</td><td id="r2" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Collector resistor for Q1">Rc (collector):</td><td id="rc" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Emitter resistor for Q1">Re1 (emitter):</td><td id="re1" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Bypass capacitor for Re1 (if used)">Ce (bypass):</td><td id="ce" class="py-2 text-right font-mono"></td></tr>
+                <tr><th colspan="2" class="py-2 pr-4 text-left font-semibold text-gray-700 pt-4">EF Stage (Q2)</th></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Emitter resistor for Q2">Re2 (emitter):</td><td id="re2" class="py-2 text-right font-mono"></td></tr>
+                <tr><th colspan="2" class="py-2 pr-4 text-left font-semibold text-gray-700 pt-4">Coupling Capacitors</th></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Input coupling capacitor">Cin (input):</td><td id="cin" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Output coupling capacitor">Cout (output):</td><td id="cout" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
 
-        <h2>Operating Points</h2>
-        <table>
-            <tr><th colspan="2">Q1 (CE Stage)</th></tr>
-            <tr><td>Vb1:</td><td id="vb1"></td></tr>
-            <tr><td>Ve1:</td><td id="ve1"></td></tr>
-            <tr><td>Vc1:</td><td id="vc1"></td></tr>
-            <tr><td>Ic1:</td><td id="ic1val"></td></tr>
-            <tr><td>Vce1:</td><td id="vce1"></td></tr>
-            <tr><th colspan="2">Q2 (EF Stage)</th></tr>
-            <tr><td>Vb2 (= Vc1):</td><td id="vb2"></td></tr>
-            <tr><td>Ve2:</td><td id="ve2"></td></tr>
-            <tr><td>Vce2:</td><td id="vce2"></td></tr>
-            <tr><td>Ie2:</td><td id="ie2val"></td></tr>
-        </table>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Operating Points</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><th colspan="2" class="py-2 pr-4 text-left font-semibold text-gray-700">Q1 (CE Stage)</th></tr>
+                <tr><td class="py-2 pr-4">Vb1:</td><td id="vb1" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Ve1:</td><td id="ve1" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Vc1:</td><td id="vc1" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Ic1:</td><td id="ic1val" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Vce1:</td><td id="vce1" class="py-2 text-right font-mono"></td></tr>
+                <tr><th colspan="2" class="py-2 pr-4 text-left font-semibold text-gray-700 pt-4">Q2 (EF Stage)</th></tr>
+                <tr><td class="py-2 pr-4">Vb2 (= Vc1):</td><td id="vb2" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Ve2:</td><td id="ve2" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Vce2:</td><td id="vce2" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Ie2:</td><td id="ie2val" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
 
-        <h2>Gain Analysis</h2>
-        <p class="section-note">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Gain Analysis</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
             The CE stage provides voltage gain. The EF stage has near-unity voltage gain
             but provides current gain and low output impedance for driving loads.
         </p>
-        <table>
-            <tr><td title="Input impedance seen by the source">Input impedance (Zin):</td><td id="zin"></td></tr>
-            <tr><td title="Output impedance driving the load">Output impedance (Zout):</td><td id="zout"></td></tr>
-            <tr><td title="Voltage gain of CE stage alone">CE stage gain (Av1):</td><td id="av1"></td></tr>
-            <tr><td title="Voltage gain of EF stage alone">EF stage gain (Av2):</td><td id="av2"></td></tr>
-            <tr><td title="Signal loss at input">Input attenuation:</td><td id="inputAtten"></td></tr>
-            <tr><td title="Total voltage gain from source to load"><b>Total gain:</b></td><td id="totalGain"></td></tr>
-            <tr><td>Expected output:</td><td id="expectedOut"></td></tr>
-            <tr><td>Available swing:</td><td id="swing"></td></tr>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Input impedance seen by the source">Input impedance (Zin):</td><td id="zin" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Output impedance driving the load">Output impedance (Zout):</td><td id="zout" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Voltage gain of CE stage alone">CE stage gain (Av1):</td><td id="av1" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Voltage gain of EF stage alone">EF stage gain (Av2):</td><td id="av2" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Signal loss at input">Input attenuation:</td><td id="inputAtten" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400 font-bold" title="Total voltage gain from source to load">Total gain:</td><td id="totalGain" class="py-2 text-right font-mono font-bold"></td></tr>
+                <tr><td class="py-2 pr-4">Expected output:</td><td id="expectedOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Available swing:</td><td id="swing" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
 
-        <p id="note" style="color: #c60;"></p>
+        <p id="note" class="text-amber-600 mt-4"></p>
 
-        <h2>Input / Output Waveforms</h2>
-        <p class="section-note">
-            The CE stage inverts the signal (180&deg; phase shift).
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Input / Output Waveforms</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            The CE stage inverts the signal (180&#176; phase shift).
             The EF stage does not invert. Net result: output is inverted from input.
         </p>
-        <div id="waveforms"></div>
+        <div id="waveforms" class="overflow-x-auto"></div>
 
-        <h2>Frequency Response</h2>
-        <p class="section-note">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Frequency Response</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
             Low frequencies are limited by coupling capacitors. High frequencies are limited
-            by transistor capacitances and &beta; rolloff. Direct coupling eliminates one low-frequency pole.
+            by transistor capacitances and &#946; rolloff. Direct coupling eliminates one low-frequency pole.
         </p>
-        <div id="freqResponse"></div>
+        <div id="freqResponse" class="overflow-x-auto"></div>
 
-        <h2>Design Formulas</h2>
-        <details>
-            <summary>Click to show step-by-step design procedure</summary>
-            <div>
-                <h3>Direct Coupling Constraint</h3>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Design Formulas</h2>
+        <details class="my-4">
+            <summary class="cursor-pointer text-primary font-bold">Click to show step-by-step design procedure</summary>
+            <div class="mt-4 p-4 bg-gray-100 rounded text-sm">
+                <h3 class="text-base font-semibold text-gray-600 mt-0 mb-2">Direct Coupling Constraint</h3>
                 <p>The key constraint in direct coupling is that Q1's collector voltage sets Q2's base voltage:</p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     V<sub>c1</sub> = V<sub>b2</sub><br>
                     V<sub>e2</sub> = V<sub>b2</sub> - 0.7V = V<sub>c1</sub> - 0.7V
                 </code>
 
-                <h3>Step 1: Set Q2 Operating Point</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 1: Set Q2 Operating Point</h3>
                 <p>For maximum swing, set Ve2 around Vcc/3:</p>
-                <code class="formula">
-                    V<sub>e2</sub> &asymp; V<sub>cc</sub> / 3<br>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    V<sub>e2</sub> &#8776; V<sub>cc</sub> / 3<br>
                     R<sub>e2</sub> = V<sub>e2</sub> / I<sub>e2</sub>
                 </code>
 
-                <h3>Step 2: Calculate Q1 Collector Voltage</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 2: Calculate Q1 Collector Voltage</h3>
                 <p>This is fixed by the direct coupling:</p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     V<sub>c1</sub> = V<sub>e2</sub> + 0.7V
                 </code>
 
-                <h3>Step 3: Set Q1 Emitter Voltage</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 3: Set Q1 Emitter Voltage</h3>
                 <p>For Q1 stability, use standard CE biasing:</p>
-                <code class="formula">
-                    V<sub>e1</sub> = max(0.1 &times; V<sub>cc</sub>, 1V)<br>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    V<sub>e1</sub> = max(0.1 &#215; V<sub>cc</sub>, 1V)<br>
                     R<sub>e1</sub> = V<sub>e1</sub> / I<sub>c1</sub>
                 </code>
 
-                <h3>Step 4: Calculate Collector Resistor</h3>
-                <code class="formula">
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 4: Calculate Collector Resistor</h3>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     R<sub>c</sub> = (V<sub>cc</sub> - V<sub>c1</sub>) / I<sub>c1</sub>
                 </code>
 
-                <h3>Step 5: Verify Gain is Achievable</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 5: Verify Gain is Achievable</h3>
                 <p>With Rc fixed by biasing, check if desired gain is possible:</p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     A<sub>v1</sub> = R<sub>c</sub> / (R<sub>e1</sub> + r<sub>e1</sub>') &nbsp; [no bypass]<br>
                     A<sub>v1</sub> = R<sub>c</sub> / r<sub>e1</sub>' &nbsp; [with bypass]
                 </code>
 
-                <h3>Step 6: Calculate Bias Resistors</h3>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 6: Calculate Bias Resistors</h3>
                 <p>Standard stiff divider for Q1:</p>
-                <code class="formula">
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     V<sub>b1</sub> = V<sub>e1</sub> + 0.7V<br>
-                    I<sub>divider</sub> = 10 &times; I<sub>b1</sub><br>
+                    I<sub>divider</sub> = 10 &#215; I<sub>b1</sub><br>
                     R<sub>1</sub> + R<sub>2</sub> = V<sub>cc</sub> / I<sub>divider</sub><br>
                     R<sub>2</sub> / (R<sub>1</sub> + R<sub>2</sub>) = V<sub>b1</sub> / V<sub>cc</sub>
                 </code>
 
-                <h3>Step 7: Calculate Impedances</h3>
-                <code class="formula">
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 7: Calculate Impedances</h3>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     <b>Input impedance:</b><br>
-                    Z<sub>in(Q1)</sub> = &beta;<sub>1</sub> &times; (r<sub>e1</sub>' + R<sub>e1</sub>)<br>
-                    Z<sub>in</sub> = R<sub>1</sub> || R<sub>2</sub> || Z<sub>in(Q1)</sub><br><br>
+                    Z<sub>in(Q1)</sub> = &#946;<sub>1</sub> &#215; (r<sub>e1</sub>' + R<sub>e1</sub>)<br>
+                    Z<sub>in</sub> = R<sub>1</sub> &#8741; R<sub>2</sub> &#8741; Z<sub>in(Q1)</sub><br><br>
                     <b>Output impedance (EF stage):</b><br>
-                    Z<sub>out</sub> = (r<sub>e2</sub>' + R<sub>c</sub>/&beta;<sub>2</sub>) || R<sub>e2</sub>
+                    Z<sub>out</sub> = (r<sub>e2</sub>' + R<sub>c</sub>/&#946;<sub>2</sub>) &#8741; R<sub>e2</sub>
                 </code>
 
-                <h3>Key Advantages of This Topology</h3>
-                <ul>
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Key Advantages of This Topology</h3>
+                <ul class="list-disc ml-5 space-y-1">
                     <li><b>Extended low-frequency response:</b> One fewer coupling capacitor</li>
                     <li><b>Low output impedance:</b> EF buffer can drive low-impedance loads</li>
                     <li><b>High input impedance:</b> CE stage doesn't load the source</li>
-                    <li><b>Good current gain:</b> &beta;<sub>1</sub> &times; &beta;<sub>2</sub> overall</li>
+                    <li><b>Good current gain:</b> &#946;<sub>1</sub> &#215; &#946;<sub>2</sub> overall</li>
                 </ul>
             </div>
         </details>
@@ -368,7 +392,7 @@
             const xScale = (t) => margin.left + (t / cycles) * plotW;
             const yScale = (v) => margin.top + plotH / 2 - (v / maxV) * (plotH / 2);
 
-            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
 
             svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
             svg += `<line x1="${margin.left}" y1="${yScale(0)}" x2="${margin.left + plotW}" y2="${yScale(0)}" stroke="#ccc" stroke-width="1"/>`;
@@ -659,9 +683,9 @@
             const warn = document.getElementById('warning');
             if (warnings.length > 0) {
                 warn.innerHTML = warnings.join('<br><br>');
-                warn.style.display = 'block';
+                warn.classList.remove('hidden');
             } else {
-                warn.style.display = 'none';
+                warn.classList.add('hidden');
             }
 
             // Display results

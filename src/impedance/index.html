@@ -4,182 +4,136 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Impedance Matching - The Hidden Voltage Divider</title>
-    <link rel="stylesheet" href="../common.css">
-    <style>
-        /* Page-specific styles */
-        .calculator {
-            background: #fafafa;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
         }
-        .calculator input[type="number"] {
-            width: 100px;
-        }
-        .results {
-            margin-top: 20px;
-            padding: 15px;
-            background: #fff;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .results table {
-            width: 100%;
-        }
-        .results td {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .results td:last-child {
-            font-weight: bold;
-        }
-        .presets {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 15px 0;
-        }
-        .preset-btn {
-            padding: 8px 12px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
-            cursor: pointer;
-            font-size: 13px;
-        }
-        .preset-btn:hover {
-            background: #f0f0f0;
-            border-color: #999;
-        }
-        .preset-btn.active {
-            background: #2266cc;
-            color: white;
-            border-color: #2266cc;
-        }
-        .formula-display {
-            font-family: serif;
-            font-size: 1.2em;
-            text-align: center;
-            padding: 15px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 15px 0;
-        }
-    </style>
+    }
+    </script>
 </head>
-<body>
-    <h1>Impedance Matching</h1>
-    <p class="intro">
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Impedance Matching</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
         Every connection between a source and load is secretly a voltage divider.
         Understanding this explains most "mysterious" signal loss in electronics.
     </p>
 
-    <h2>The Hidden Voltage Divider</h2>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">The Hidden Voltage Divider</h2>
 
-    <div class="concept-box">
+    <div class="bg-blue-50 border-l-4 border-blue-600 p-4 my-5">
         <p><strong>Key insight:</strong> Every signal source has an output impedance (Z<sub>source</sub>).
         When you connect a load (Z<sub>load</sub>), they form a voltage divider:</p>
     </div>
 
-    <div class="diagram" id="dividerDiagram"></div>
+    <div class="diagram overflow-x-auto" id="dividerDiagram"></div>
 
-    <div class="formula-display">
+    <div class="font-serif text-xl text-center p-4 bg-white border border-gray-200 rounded my-4">
         V<sub>load</sub> = V<sub>source</sub> × <sup>Z<sub>load</sub></sup>&frasl;<sub>(Z<sub>source</sub> + Z<sub>load</sub>)</sub>
     </div>
 
     <p>This means:</p>
-    <ul>
+    <ul class="list-disc pl-6 my-4 space-y-2">
         <li><strong>Z<sub>load</sub> >> Z<sub>source</sub></strong> → Most voltage reaches the load (voltage transfer)</li>
         <li><strong>Z<sub>load</sub> = Z<sub>source</sub></strong> → Maximum power transfer (but only 50% voltage)</li>
         <li><strong>Z<sub>load</sub> << Z<sub>source</sub></strong> → Most voltage dropped across source (signal loss!)</li>
     </ul>
 
-    <h2>Calculator</h2>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Calculator</h2>
 
-    <div class="calculator">
-        <h3 style="margin-top: 0;">Common Scenarios</h3>
-        <div class="presets" id="presets"></div>
+    <div class="bg-gray-50 border border-gray-200 rounded-lg p-5 my-5">
+        <h3 class="font-semibold text-gray-700 mt-0 mb-3">Common Scenarios</h3>
+        <div class="flex flex-wrap gap-2 my-4" id="presets"></div>
 
-        <h3>Parameters</h3>
-        <table style="border-collapse: collapse;">
-            <tr>
-                <td style="padding: 8px 15px 8px 0;">Source impedance:</td>
-                <td>
-                    <input type="number" id="zsource" value="1000" min="0" step="100">
-                    <select id="zsourceUnit">
-                        <option value="1">Ω</option>
-                        <option value="1000" selected>kΩ</option>
-                        <option value="1000000">MΩ</option>
-                    </select>
-                </td>
+        <h3 class="font-semibold text-gray-700 mt-6 mb-3">Parameters</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr>
+                    <td class="py-2 pr-4">Source impedance:</td>
+                    <td class="py-2">
+                        <input type="number" id="zsource" value="1000" min="0" step="100" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="zsourceUnit" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1">Ω</option>
+                            <option value="1000" selected>kΩ</option>
+                            <option value="1000000">MΩ</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4">Load impedance:</td>
+                    <td class="py-2">
+                        <input type="number" id="zload" value="10" min="0" step="100" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="zloadUnit" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1">Ω</option>
+                            <option value="1000" selected>kΩ</option>
+                            <option value="1000000">MΩ</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4">Source voltage (optional):</td>
+                    <td class="py-2">
+                        <input type="number" id="vsource" value="1" min="0" step="0.1" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm"> V (peak)
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mt-4">
+            <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
+            <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+        </div>
+
+        <div class="mt-5 p-4 bg-white border border-gray-300 rounded" id="results"></div>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Rules of Thumb</h2>
+
+    <div class="bg-blue-50 border-l-4 border-blue-600 p-4 my-5">
+        <p><strong>The 10:1 Rule:</strong> For minimal signal loss (&lt;10%), keep Z<sub>load</sub> at least 10× larger than Z<sub>source</sub>.</p>
+        <p class="mb-0">This gives you 91% voltage transfer — usually "good enough" for most applications.</p>
+    </div>
+
+    <h3 class="text-lg font-semibold text-gray-600 mt-6 mb-3">When to Use Each Strategy</h3>
+    <div class="overflow-x-auto">
+        <table class="w-full my-4 border-collapse">
+            <tr class="bg-gray-100">
+                <th class="p-2.5 text-left border-b-2 border-gray-300">Goal</th>
+                <th class="p-2.5 text-left border-b-2 border-gray-300">Strategy</th>
+                <th class="p-2.5 text-left border-b-2 border-gray-300">Examples</th>
             </tr>
             <tr>
-                <td style="padding: 8px 15px 8px 0;">Load impedance:</td>
-                <td>
-                    <input type="number" id="zload" value="10" min="0" step="100">
-                    <select id="zloadUnit">
-                        <option value="1">Ω</option>
-                        <option value="1000" selected>kΩ</option>
-                        <option value="1000000">MΩ</option>
-                    </select>
-                </td>
+                <td class="p-2.5 border-b border-gray-200"><strong>Maximum voltage</strong></td>
+                <td class="p-2.5 border-b border-gray-200">Z<sub>load</sub> >> Z<sub>source</sub></td>
+                <td class="p-2.5 border-b border-gray-200">Audio preamps, instrument inputs, sensor buffers</td>
             </tr>
             <tr>
-                <td style="padding: 8px 15px 8px 0;">Source voltage (optional):</td>
-                <td>
-                    <input type="number" id="vsource" value="1" min="0" step="0.1"> V (peak)
-                </td>
+                <td class="p-2.5 border-b border-gray-200"><strong>Maximum power</strong></td>
+                <td class="p-2.5 border-b border-gray-200">Z<sub>load</sub> = Z<sub>source</sub></td>
+                <td class="p-2.5 border-b border-gray-200">RF systems, transmission lines, antenna matching</td>
+            </tr>
+            <tr>
+                <td class="p-2.5 border-b border-gray-200"><strong>Controlled impedance</strong></td>
+                <td class="p-2.5 border-b border-gray-200">Z<sub>load</sub> = Z<sub>line</sub> = Z<sub>source</sub></td>
+                <td class="p-2.5 border-b border-gray-200">Video cables (75Ω), Ethernet, high-speed digital</td>
             </tr>
         </table>
-
-        <button onclick="calculate()" style="margin-top: 15px;">Calculate</button>
-        <button onclick="resetDefaults()" style="margin-top: 15px; margin-left: 10px;">Reset</button>
-
-        <div class="results" id="results"></div>
     </div>
 
-    <h2>Rules of Thumb</h2>
-
-    <div class="concept-box">
-        <p><strong>The 10:1 Rule:</strong> For minimal signal loss (&lt;10%), keep Z<sub>load</sub> at least 10× larger than Z<sub>source</sub>.</p>
-        <p style="margin-bottom: 0;">This gives you 91% voltage transfer — usually "good enough" for most applications.</p>
-    </div>
-
-    <h3>When to Use Each Strategy</h3>
-    <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-        <tr style="background: #f5f5f5;">
-            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Goal</th>
-            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Strategy</th>
-            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">Examples</th>
-        </tr>
-        <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Maximum voltage</strong></td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">Z<sub>load</sub> >> Z<sub>source</sub></td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">Audio preamps, instrument inputs, sensor buffers</td>
-        </tr>
-        <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Maximum power</strong></td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">Z<sub>load</sub> = Z<sub>source</sub></td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">RF systems, transmission lines, antenna matching</td>
-        </tr>
-        <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Controlled impedance</strong></td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">Z<sub>load</sub> = Z<sub>line</sub> = Z<sub>source</sub></td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee;">Video cables (75Ω), Ethernet, high-speed digital</td>
-        </tr>
-    </table>
-
-    <div class="warning-box">
+    <div class="bg-orange-50 border-l-4 border-orange-600 p-4 my-5">
         <p><strong>Common mistake:</strong> Assuming "impedance matching" always means Z<sub>load</sub> = Z<sub>source</sub>.</p>
-        <p style="margin-bottom: 0;">In audio and most analog circuits, you actually want Z<sub>load</sub> >> Z<sub>source</sub> to preserve signal voltage.
+        <p class="mb-0">In audio and most analog circuits, you actually want Z<sub>load</sub> >> Z<sub>source</sub> to preserve signal voltage.
         True "matching" (equal impedances) is mainly for RF and transmission lines where reflections matter.</p>
     </div>
 
-    <h2>Why This Matters</h2>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Why This Matters</h2>
     <p>Understanding the voltage divider model explains many real-world issues:</p>
-    <ul>
+    <ul class="list-disc pl-6 my-4 space-y-2">
         <li><strong>Guitar sounds thin when plugged into wrong input</strong> — High-Z pickup into low-Z input = massive signal loss</li>
         <li><strong>Headphones sound different on different sources</strong> — Source impedance affects frequency response</li>
         <li><strong>Oscilloscope loads down circuit</strong> — 1MΩ probe still forms divider with high-Z nodes</li>
@@ -214,7 +168,7 @@
             const container = document.getElementById('presets');
             presets.forEach((p, i) => {
                 const btn = document.createElement('button');
-                btn.className = 'preset-btn';
+                btn.className = 'px-3 py-2 border border-gray-300 rounded bg-white hover:bg-gray-100 hover:border-gray-400 cursor-pointer text-sm transition-colors';
                 btn.textContent = p[0];
                 btn.title = p[5];
                 btn.onclick = () => applyPreset(i);
@@ -230,8 +184,12 @@
             document.getElementById('zloadUnit').value = unitToValue(p[4]);
 
             // Update active button
-            document.querySelectorAll('.preset-btn').forEach((btn, i) => {
-                btn.classList.toggle('active', i === index);
+            document.querySelectorAll('#presets button').forEach((btn, i) => {
+                if (i === index) {
+                    btn.className = 'px-3 py-2 border border-primary rounded bg-primary text-white cursor-pointer text-sm transition-colors';
+                } else {
+                    btn.className = 'px-3 py-2 border border-gray-300 rounded bg-white hover:bg-gray-100 hover:border-gray-400 cursor-pointer text-sm transition-colors';
+                }
             });
 
             calculate();
@@ -260,7 +218,7 @@
             const loadBarH = maxBarH * ratio;
             const lossBarH = maxBarH - loadBarH;
 
-            let svg = `<svg width="${width}" height="${height}" style="font-family: system-ui, sans-serif; font-size: 12px;">`;
+            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: system-ui, sans-serif; font-size: 12px;">`;
 
             // Source (battery/generator symbol)
             svg += `<circle cx="60" cy="100" r="20" fill="none" stroke="#333" stroke-width="2"/>`;
@@ -359,16 +317,16 @@
             let rating, ratingClass;
             if (ratio >= 0.9) {
                 rating = 'Excellent voltage transfer';
-                ratingClass = 'good';
+                ratingClass = 'text-green-600';
             } else if (ratio >= 0.7) {
                 rating = 'Acceptable for most applications';
-                ratingClass = 'okay';
+                ratingClass = 'text-amber-600';
             } else if (ratio >= 0.5) {
                 rating = 'Significant signal loss';
-                ratingClass = 'okay';
+                ratingClass = 'text-amber-600';
             } else {
                 rating = 'Poor match - severe signal loss!';
-                ratingClass = 'bad';
+                ratingClass = 'text-red-600';
             }
 
             // Update diagram
@@ -376,47 +334,47 @@
 
             // Build results
             let html = `
-                <h4 style="margin: 0 0 10px 0; color: #555;">Voltage Transfer</h4>
-                <table>
+                <h4 class="m-0 mb-2.5 text-gray-600 font-semibold">Voltage Transfer</h4>
+                <table class="w-full">
                     <tr>
-                        <td>Impedance ratio (Z<sub>load</sub>/Z<sub>source</sub>)</td>
-                        <td>${zRatio.toFixed(2)}:1</td>
+                        <td class="py-2 border-b border-gray-200">Impedance ratio (Z<sub>load</sub>/Z<sub>source</sub>)</td>
+                        <td class="py-2 border-b border-gray-200 font-bold text-right">${zRatio.toFixed(2)}:1</td>
                     </tr>
                     <tr>
-                        <td>Voltage transfer</td>
-                        <td class="${ratingClass}" style="font-size: 1.2em;">${(ratio * 100).toFixed(1)}%</td>
+                        <td class="py-2 border-b border-gray-200">Voltage transfer</td>
+                        <td class="py-2 border-b border-gray-200 font-bold text-right text-lg ${ratingClass}">${(ratio * 100).toFixed(1)}%</td>
                     </tr>
                     <tr>
-                        <td>Voltage at load</td>
-                        <td>${(vLoad * 1000).toFixed(1)} mV (from ${(vSource * 1000).toFixed(0)} mV source)</td>
+                        <td class="py-2 border-b border-gray-200">Voltage at load</td>
+                        <td class="py-2 border-b border-gray-200 font-bold text-right">${(vLoad * 1000).toFixed(1)} mV (from ${(vSource * 1000).toFixed(0)} mV source)</td>
                     </tr>
                     <tr>
-                        <td>Signal loss</td>
-                        <td class="${ratingClass}">${(20 * Math.log10(ratio)).toFixed(2)} dB</td>
+                        <td class="py-2 border-b border-gray-200">Signal loss</td>
+                        <td class="py-2 border-b border-gray-200 font-bold text-right ${ratingClass}">${(20 * Math.log10(ratio)).toFixed(2)} dB</td>
                     </tr>
                 </table>
-                <p style="margin: 15px 0 5px 0;"><strong class="${ratingClass}">${rating}</strong></p>
+                <p class="my-4"><strong class="${ratingClass}">${rating}</strong></p>
 
-                <h4 style="margin: 20px 0 10px 0; padding-top: 15px; border-top: 1px solid #ddd; color: #555;">Power Transfer</h4>
-                <table>
+                <h4 class="mt-5 mb-2.5 pt-4 border-t border-gray-200 text-gray-600 font-semibold">Power Transfer</h4>
+                <table class="w-full">
                     <tr>
-                        <td>Current</td>
-                        <td>${current >= 0.001 ? (current * 1000).toFixed(3) + ' mA' : (current * 1e6).toFixed(3) + ' µA'}</td>
+                        <td class="py-2 border-b border-gray-200">Current</td>
+                        <td class="py-2 border-b border-gray-200 font-bold text-right">${current >= 0.001 ? (current * 1000).toFixed(3) + ' mA' : (current * 1e6).toFixed(3) + ' µA'}</td>
                     </tr>
                     <tr>
-                        <td>Power to load</td>
-                        <td>${powerLoad >= 0.001 ? (powerLoad * 1000).toFixed(3) + ' mW' : (powerLoad * 1e6).toFixed(3) + ' µW'}</td>
+                        <td class="py-2 border-b border-gray-200">Power to load</td>
+                        <td class="py-2 border-b border-gray-200 font-bold text-right">${powerLoad >= 0.001 ? (powerLoad * 1000).toFixed(3) + ' mW' : (powerLoad * 1e6).toFixed(3) + ' µW'}</td>
                     </tr>
                     <tr>
-                        <td>Power vs. matched (Z<sub>load</sub>=Z<sub>source</sub>)</td>
-                        <td>${(powerRatio * 100).toFixed(1)}% of maximum</td>
+                        <td class="py-2 border-b border-gray-200">Power vs. matched (Z<sub>load</sub>=Z<sub>source</sub>)</td>
+                        <td class="py-2 border-b border-gray-200 font-bold text-right">${(powerRatio * 100).toFixed(1)}% of maximum</td>
                     </tr>
                 </table>
             `;
 
             // Add recommendation
             if (ratio < 0.9) {
-                html += `<p style="color: #666; font-size: 0.9em; margin-top: 10px;">`;
+                html += `<p class="text-gray-600 text-sm mt-2.5">`;
                 if (zRatio < 10) {
                     const neededZload = zsource * 10;
                     html += `<strong>Tip:</strong> For >90% voltage transfer, Z<sub>load</sub> should be at least ${formatZ(neededZload)}.`;
@@ -436,7 +394,9 @@
             document.getElementById('zload').value = '10';
             document.getElementById('zloadUnit').value = '1000';
             document.getElementById('vsource').value = '1';
-            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('#presets button').forEach(btn => {
+                btn.className = 'px-3 py-2 border border-gray-300 rounded bg-white hover:bg-gray-100 hover:border-gray-400 cursor-pointer text-sm transition-colors';
+            });
             calculate();
         }
 
