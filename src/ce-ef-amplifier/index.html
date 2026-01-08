@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CE + Emitter Follower Calculator</title>
+    <link rel="stylesheet" href="../common.css">
+</head>
+<body>
+    <h1>CE + Emitter Follower Calculator</h1>
+    <p class="intro">
+        Design a two-stage amplifier with a Common Emitter (CE) stage directly coupled to an Emitter Follower (EF).
+        The CE provides voltage gain while the EF provides current gain and low output impedance.
+        Direct coupling eliminates an inter-stage capacitor and extends low-frequency response.
+    </p>
+
+    <h2>Inputs</h2>
+    <table>
+        <tr>
+            <td title="Supply voltage for the amplifier">Vcc:</td>
+            <td><input type="number" id="vcc" value="12" step="0.1" min="5"> V</td>
+        </tr>
+        <tr>
+            <td title="Voltage gain of the CE stage (Vout/Vin)">Desired gain (Av):</td>
+            <td><input type="number" id="gain" value="10" step="1" min="1"> V/V</td>
+        </tr>
+        <tr>
+            <td title="Peak amplitude of your input signal (used to check for clipping)">Input (peak):</td>
+            <td><input type="number" id="vin" value="50" step="10" min="1"> mV</td>
+        </tr>
+        <tr>
+            <td title="Output impedance of whatever drives this amplifier">Source impedance:</td>
+            <td><input type="number" id="zsource" value="1000" step="100" min="0"> &Omega;</td>
+        </tr>
+        <tr>
+            <td title="Lowest frequency you need to amplify. Sets the coupling capacitor sizes.">Low frequency (-3dB):</td>
+            <td><input type="number" id="fLow" value="20" step="1" min="1"> Hz</td>
+        </tr>
+        <tr>
+            <td title="Resistance of whatever this amplifier drives">Load resistance:</td>
+            <td><input type="number" id="rload" value="600" step="100" min="10"> &Omega;</td>
+        </tr>
+        <tr>
+            <td title="Bypassing Re1 with a capacitor increases AC gain">Bypass Re1:</td>
+            <td>
+                <select id="bypassMode">
+                    <option value="none">No bypass (stable gain)</option>
+                    <option value="full">Full bypass (max gain)</option>
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td title="DC current through Q1's collector">Q1 Collector current (Ic1):</td>
+            <td><input type="number" id="ic1" value="1" step="0.5" min="0.1" max="20"> mA</td>
+        </tr>
+        <tr>
+            <td title="DC current through Q2's emitter">Q2 Emitter current (Ie2):</td>
+            <td><input type="number" id="ie2" value="5" step="1" min="0.5" max="50"> mA</td>
+        </tr>
+        <tr>
+            <td title="Current gain of Q1. Find this in the datasheet.">Q1 &beta; (hFE):</td>
+            <td><input type="number" id="beta1" value="100" step="10" min="20"></td>
+        </tr>
+        <tr>
+            <td title="Current gain of Q2. Find this in the datasheet.">Q2 &beta; (hFE):</td>
+            <td><input type="number" id="beta2" value="100" step="10" min="20"></td>
+        </tr>
+        <tr>
+            <td title="Transition frequency - where the transistor's current gain drops to 1">fT (transistors):</td>
+            <td><input type="number" id="ft" value="150" step="50" min="10"> MHz</td>
+        </tr>
+    </table>
+    <p class="hint">Hover over labels for explanations.</p>
+    <button onclick="calculate()">Calculate</button>
+    <button onclick="resetDefaults()" style="margin-left: 10px;">Reset</button>
+
+    <div id="warning" style="display: none;"></div>
+
+    <div id="results">
+        <h2>Schematic</h2>
+        <div id="schematic"></div>
+
+        <h2>Calculated Values</h2>
+        <p class="section-note">
+            Component values rounded to standard E24 series. Q1 uses voltage divider bias,
+            Q2 is biased directly from Q1's collector.
+        </p>
+        <table>
+            <tr><th colspan="2">CE Stage (Q1)</th></tr>
+            <tr><td title="Upper bias resistor for Q1">R1 (upper bias):</td><td id="r1"></td></tr>
+            <tr><td title="Lower bias resistor for Q1">R2 (lower bias):</td><td id="r2"></td></tr>
+            <tr><td title="Collector resistor for Q1">Rc (collector):</td><td id="rc"></td></tr>
+            <tr><td title="Emitter resistor for Q1">Re1 (emitter):</td><td id="re1"></td></tr>
+            <tr><td title="Bypass capacitor for Re1 (if used)">Ce (bypass):</td><td id="ce"></td></tr>
+            <tr><th colspan="2">EF Stage (Q2)</th></tr>
+            <tr><td title="Emitter resistor for Q2">Re2 (emitter):</td><td id="re2"></td></tr>
+            <tr><th colspan="2">Coupling Capacitors</th></tr>
+            <tr><td title="Input coupling capacitor">Cin (input):</td><td id="cin"></td></tr>
+            <tr><td title="Output coupling capacitor">Cout (output):</td><td id="cout"></td></tr>
+        </table>
+
+        <h2>Operating Points</h2>
+        <table>
+            <tr><th colspan="2">Q1 (CE Stage)</th></tr>
+            <tr><td>Vb1:</td><td id="vb1"></td></tr>
+            <tr><td>Ve1:</td><td id="ve1"></td></tr>
+            <tr><td>Vc1:</td><td id="vc1"></td></tr>
+            <tr><td>Ic1:</td><td id="ic1val"></td></tr>
+            <tr><td>Vce1:</td><td id="vce1"></td></tr>
+            <tr><th colspan="2">Q2 (EF Stage)</th></tr>
+            <tr><td>Vb2 (= Vc1):</td><td id="vb2"></td></tr>
+            <tr><td>Ve2:</td><td id="ve2"></td></tr>
+            <tr><td>Vce2:</td><td id="vce2"></td></tr>
+            <tr><td>Ie2:</td><td id="ie2val"></td></tr>
+        </table>
+
+        <h2>Gain Analysis</h2>
+        <p class="section-note">
+            The CE stage provides voltage gain. The EF stage has near-unity voltage gain
+            but provides current gain and low output impedance for driving loads.
+        </p>
+        <table>
+            <tr><td title="Input impedance seen by the source">Input impedance (Zin):</td><td id="zin"></td></tr>
+            <tr><td title="Output impedance driving the load">Output impedance (Zout):</td><td id="zout"></td></tr>
+            <tr><td title="Voltage gain of CE stage alone">CE stage gain (Av1):</td><td id="av1"></td></tr>
+            <tr><td title="Voltage gain of EF stage alone">EF stage gain (Av2):</td><td id="av2"></td></tr>
+            <tr><td title="Signal loss at input">Input attenuation:</td><td id="inputAtten"></td></tr>
+            <tr><td title="Total voltage gain from source to load"><b>Total gain:</b></td><td id="totalGain"></td></tr>
+            <tr><td>Expected output:</td><td id="expectedOut"></td></tr>
+            <tr><td>Available swing:</td><td id="swing"></td></tr>
+        </table>
+
+        <p id="note" style="color: #c60;"></p>
+
+        <h2>Input / Output Waveforms</h2>
+        <p class="section-note">
+            The CE stage inverts the signal (180&deg; phase shift).
+            The EF stage does not invert. Net result: output is inverted from input.
+        </p>
+        <div id="waveforms"></div>
+
+        <h2>Frequency Response</h2>
+        <p class="section-note">
+            Low frequencies are limited by coupling capacitors. High frequencies are limited
+            by transistor capacitances and &beta; rolloff. Direct coupling eliminates one low-frequency pole.
+        </p>
+        <div id="freqResponse"></div>
+
+        <h2>Design Formulas</h2>
+        <details>
+            <summary>Click to show step-by-step design procedure</summary>
+            <div>
+                <h3>Direct Coupling Constraint</h3>
+                <p>The key constraint in direct coupling is that Q1's collector voltage sets Q2's base voltage:</p>
+                <code class="formula">
+                    V<sub>c1</sub> = V<sub>b2</sub><br>
+                    V<sub>e2</sub> = V<sub>b2</sub> - 0.7V = V<sub>c1</sub> - 0.7V
+                </code>
+
+                <h3>Step 1: Set Q2 Operating Point</h3>
+                <p>For maximum swing, set Ve2 around Vcc/3:</p>
+                <code class="formula">
+                    V<sub>e2</sub> &asymp; V<sub>cc</sub> / 3<br>
+                    R<sub>e2</sub> = V<sub>e2</sub> / I<sub>e2</sub>
+                </code>
+
+                <h3>Step 2: Calculate Q1 Collector Voltage</h3>
+                <p>This is fixed by the direct coupling:</p>
+                <code class="formula">
+                    V<sub>c1</sub> = V<sub>e2</sub> + 0.7V
+                </code>
+
+                <h3>Step 3: Set Q1 Emitter Voltage</h3>
+                <p>For Q1 stability, use standard CE biasing:</p>
+                <code class="formula">
+                    V<sub>e1</sub> = max(0.1 &times; V<sub>cc</sub>, 1V)<br>
+                    R<sub>e1</sub> = V<sub>e1</sub> / I<sub>c1</sub>
+                </code>
+
+                <h3>Step 4: Calculate Collector Resistor</h3>
+                <code class="formula">
+                    R<sub>c</sub> = (V<sub>cc</sub> - V<sub>c1</sub>) / I<sub>c1</sub>
+                </code>
+
+                <h3>Step 5: Verify Gain is Achievable</h3>
+                <p>With Rc fixed by biasing, check if desired gain is possible:</p>
+                <code class="formula">
+                    A<sub>v1</sub> = R<sub>c</sub> / (R<sub>e1</sub> + r<sub>e1</sub>') &nbsp; [no bypass]<br>
+                    A<sub>v1</sub> = R<sub>c</sub> / r<sub>e1</sub>' &nbsp; [with bypass]
+                </code>
+
+                <h3>Step 6: Calculate Bias Resistors</h3>
+                <p>Standard stiff divider for Q1:</p>
+                <code class="formula">
+                    V<sub>b1</sub> = V<sub>e1</sub> + 0.7V<br>
+                    I<sub>divider</sub> = 10 &times; I<sub>b1</sub><br>
+                    R<sub>1</sub> + R<sub>2</sub> = V<sub>cc</sub> / I<sub>divider</sub><br>
+                    R<sub>2</sub> / (R<sub>1</sub> + R<sub>2</sub>) = V<sub>b1</sub> / V<sub>cc</sub>
+                </code>
+
+                <h3>Step 7: Calculate Impedances</h3>
+                <code class="formula">
+                    <b>Input impedance:</b><br>
+                    Z<sub>in(Q1)</sub> = &beta;<sub>1</sub> &times; (r<sub>e1</sub>' + R<sub>e1</sub>)<br>
+                    Z<sub>in</sub> = R<sub>1</sub> || R<sub>2</sub> || Z<sub>in(Q1)</sub><br><br>
+                    <b>Output impedance (EF stage):</b><br>
+                    Z<sub>out</sub> = (r<sub>e2</sub>' + R<sub>c</sub>/&beta;<sub>2</sub>) || R<sub>e2</sub>
+                </code>
+
+                <h3>Key Advantages of This Topology</h3>
+                <ul>
+                    <li><b>Extended low-frequency response:</b> One fewer coupling capacitor</li>
+                    <li><b>Low output impedance:</b> EF buffer can drive low-impedance loads</li>
+                    <li><b>High input impedance:</b> CE stage doesn't load the source</li>
+                    <li><b>Good current gain:</b> &beta;<sub>1</sub> &times; &beta;<sub>2</sub> overall</li>
+                </ul>
+            </div>
+        </details>
+    </div>
+
+    <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
+    <script>
+        function drawSchematic(vals) {
+            const sch = new Schematic(520, 480);
+            const hasBypass = vals.ce !== null;
+
+            // Q1 (CE stage) - left side
+            sch.place('npn', 'Q1', 150, 180);
+
+            // Q2 (EF stage) - right side
+            sch.place('npn', 'Q2', 320, 180);
+
+            // Q1 components
+            sch.place('resistor-v', 'R1', 80, 95, { label: vals.r1 });
+            sch.place('resistor-v', 'R2', 80, 210, { label: vals.r2 });
+            sch.place('resistor-v', 'Rc', 175, 95, { label: vals.rc });
+            sch.place('resistor-v', 'Re1', 175, 250, { label: vals.re1, labelPos: hasBypass ? 'left' : 'right' });
+
+            // Ce bypass cap (only if bypass mode)
+            if (hasBypass) {
+                sch.place('capacitor-v', 'Ce', 230, 250, { label: vals.ce });
+            }
+
+            // Q2 components
+            sch.place('resistor-v', 'Re2', 345, 250, { label: vals.re2 });
+
+            // Coupling capacitors
+            sch.place('capacitor-h', 'Cin', 20, 180, { label: vals.cin });
+            sch.place('capacitor-h', 'Cout', 400, 215, { label: vals.cout });
+
+            // Load resistor (dashed - external)
+            sch.place('resistor-v', 'Rload', 460, 255, { label: vals.rload, dashed: true });
+
+            // Grounds
+            sch.place('ground', 'GND1', 80, 255);
+            sch.place('ground', 'GND2', 175, 310);
+            sch.place('ground', 'GND3', 345, 310);
+            sch.place('ground', 'GND4', 460, 300, { dashed: true });
+
+            // --- Wiring ---
+
+            // Vcc rail
+            sch.label('Vcc', 260, 25, { anchor: 'middle' });
+            sch.wire({ x: 80, y: 40 }, { x: 345, y: 40 });
+            sch.wire({ x: 80, y: 40 }, 'R1.a');
+            sch.wire({ x: 175, y: 40 }, 'Rc.a');
+            sch.node(175, 40);
+            sch.wire({ x: 345, y: 40 }, { x: 345, y: 155 }); // Q2 collector to Vcc
+            sch.node(345, 40);
+
+            // Q1 bias network
+            sch.wire('R1.b', { x: 80, y: 180 });
+            sch.node(80, 180);
+            sch.wire({ x: 80, y: 180 }, 'R2.a');
+            sch.wire('R2.b', 'GND1.a');
+
+            // Q1 base
+            sch.wire({ x: 80, y: 180 }, 'Cin.b');
+            sch.wire('Cin.a', { x: -10, y: 180 });
+            sch.label('In', -20, 184);
+            sch.wire({ x: 80, y: 180 }, 'Q1.base');
+
+            // Q1 collector to Rc
+            sch.wire('Rc.b', { x: 175, y: 130 });
+            sch.node(175, 130);
+            sch.wire({ x: 175, y: 130 }, { x: 175, y: 155 });
+
+            // Direct coupling: Q1 collector to Q2 base
+            sch.wire({ x: 175, y: 130 }, { x: 290, y: 130 });
+            sch.wire({ x: 290, y: 130 }, { x: 290, y: 180 });
+            sch.wire({ x: 290, y: 180 }, 'Q2.base');
+            sch.label('Direct', 230, 124, { fontSize: 10 });
+            sch.label('coupling', 230, 138, { fontSize: 10 });
+
+            // Q1 emitter
+            sch.wire('Q1.emitter', { x: 175, y: 215 });
+            sch.node(175, 215);
+            sch.wire({ x: 175, y: 215 }, 'Re1.a');
+            sch.wire('Re1.b', { x: 175, y: 295 });
+            sch.wire({ x: 175, y: 295 }, 'GND2.a');
+
+            // Ce bypass parallel to Re1 (if present)
+            if (hasBypass) {
+                sch.wire({ x: 175, y: 215 }, { x: 230, y: 215 });
+                sch.wire({ x: 230, y: 215 }, 'Ce.a');
+                sch.wire('Ce.b', { x: 230, y: 295 });
+                sch.wire({ x: 230, y: 295 }, { x: 175, y: 295 });
+                sch.node(175, 295);
+            }
+
+            // Q2 emitter
+            sch.wire('Q2.emitter', { x: 345, y: 215 });
+            sch.node(345, 215);
+            sch.wire({ x: 345, y: 215 }, 'Re2.a');
+            sch.wire('Re2.b', { x: 345, y: 295 });
+            sch.wire({ x: 345, y: 295 }, 'GND3.a');
+
+            // Output from Q2 emitter
+            sch.wire({ x: 345, y: 215 }, { x: 396, y: 215 });
+            sch.wire('Cout.b', { x: 430, y: 215 });
+            sch.wire({ x: 430, y: 215 }, { x: 460, y: 215 });
+            sch.node(460, 215);
+            sch.wire({ x: 460, y: 215 }, 'Rload.a', { dashed: true });
+            sch.wire('Rload.b', 'GND4.a', { dashed: true });
+            sch.label('Out', 475, 219);
+
+            // Transistor labels
+            sch.label('Q1', 160, 165, { fontSize: 10 });
+            sch.label('Q2', 330, 165, { fontSize: 10 });
+
+            // Operating point info
+            sch.label('Q1 Operating Point:', 10, 350, { bold: true });
+            sch.label('Vb1=' + vals.vb1 + '  Ve1=' + vals.ve1, 10, 370);
+            sch.label('Vc1=' + vals.vc1 + '  Ic1=' + vals.ic1, 10, 390);
+
+            sch.label('Q2 Operating Point:', 10, 420, { bold: true });
+            sch.label('Vb2=' + vals.vb2 + '  Ve2=' + vals.ve2, 10, 440);
+            sch.label('Ie2=' + vals.ie2, 10, 460);
+
+            sch.label('Gain:', 300, 350, { bold: true });
+            sch.label('CE: ' + vals.av1 + 'x', 300, 370);
+            sch.label('EF: ' + vals.av2 + 'x', 300, 390);
+            sch.label('Total: ' + vals.totalGain + 'x', 300, 410);
+
+            sch.label('Zout: ' + vals.zout, 300, 440);
+
+            return sch.toSVG();
+        }
+
+        function drawWaveforms(params) {
+            const { vinPeak, voutPeak, maxSwing } = params;
+
+            const width = 500;
+            const height = 200;
+            const margin = { top: 30, right: 20, bottom: 30, left: 50 };
+            const plotW = width - margin.left - margin.right;
+            const plotH = height - margin.top - margin.bottom;
+
+            const clipLevel = maxSwing / 2;
+            const isClipping = voutPeak > clipLevel;
+
+            const maxV = Math.max(vinPeak, isClipping ? clipLevel : voutPeak) * 1.05;
+            const cycles = 2;
+            const numPoints = 200;
+
+            const xScale = (t) => margin.left + (t / cycles) * plotW;
+            const yScale = (v) => margin.top + plotH / 2 - (v / maxV) * (plotH / 2);
+
+            let svg = `<svg width="${width}" height="${height}" style="font-family: monospace; font-size: 11px;">`;
+
+            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
+            svg += `<line x1="${margin.left}" y1="${yScale(0)}" x2="${margin.left + plotW}" y2="${yScale(0)}" stroke="#ccc" stroke-width="1"/>`;
+
+            if (isClipping) {
+                svg += `<line x1="${margin.left}" y1="${yScale(clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
+                svg += `<line x1="${margin.left}" y1="${yScale(-clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(-clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
+                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
+                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(-clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
+            }
+
+            let inputPath = '';
+            let outputPath = '';
+
+            for (let i = 0; i <= numPoints; i++) {
+                const t = (i / numPoints) * cycles;
+                const angle = t * 2 * Math.PI;
+
+                const vin = vinPeak * Math.sin(angle);
+                // CE inverts, EF doesn't, so net is inverted
+                let vout = -voutPeak * Math.sin(angle);
+                if (isClipping) {
+                    vout = Math.max(-clipLevel, Math.min(clipLevel, vout));
+                }
+
+                const x = xScale(t);
+                const yIn = yScale(vin);
+                const yOut = yScale(vout);
+
+                if (i === 0) {
+                    inputPath = `M ${x} ${yIn}`;
+                    outputPath = `M ${x} ${yOut}`;
+                } else {
+                    inputPath += ` L ${x} ${yIn}`;
+                    outputPath += ` L ${x} ${yOut}`;
+                }
+            }
+
+            svg += `<path d="${inputPath}" fill="none" stroke="#88f" stroke-width="2"/>`;
+            svg += `<path d="${outputPath}" fill="none" stroke="#c33" stroke-width="2"/>`;
+
+            svg += `<text x="${margin.left - 5}" y="${yScale(maxV * 0.8) + 4}" text-anchor="end" font-size="10">+</text>`;
+            svg += `<text x="${margin.left - 5}" y="${yScale(-maxV * 0.8) + 4}" text-anchor="end" font-size="10">-</text>`;
+            svg += `<text x="${margin.left - 5}" y="${yScale(0) + 4}" text-anchor="end" font-size="10">0</text>`;
+
+            svg += `<line x1="${margin.left + 10}" y1="${margin.top - 15}" x2="${margin.left + 30}" y2="${margin.top - 15}" stroke="#88f" stroke-width="2"/>`;
+            svg += `<text x="${margin.left + 35}" y="${margin.top - 11}" font-size="10">Input (${(vinPeak * 1000).toFixed(0)}mV peak)</text>`;
+
+            svg += `<line x1="${margin.left + 180}" y1="${margin.top - 15}" x2="${margin.left + 200}" y2="${margin.top - 15}" stroke="#c33" stroke-width="2"/>`;
+            const actualOut = isClipping ? clipLevel : voutPeak;
+            svg += `<text x="${margin.left + 205}" y="${margin.top - 11}" font-size="10">Output (${(actualOut * 1000).toFixed(0)}mV peak${isClipping ? ', clipped' : ''})</text>`;
+
+            svg += `<text x="${width / 2}" y="${height - 5}" text-anchor="middle" fill="#666" font-size="10">180° phase inversion (CE inverts, EF doesn't)</text>`;
+
+            svg += '</svg>';
+            return svg;
+        }
+
+        function drawFrequencyResponse(params) {
+            const { zin, zsource, rc, re1, re1Effective, re1Intrinsic, re2, re2Intrinsic, rload, cin, cout, ce, beta1, beta2, fLow, fT, bypassMode } = params;
+
+            const fMin = 1;
+            const fMax = 100000000;
+
+            // Corner frequencies
+            const fcIn = 1 / (2 * Math.PI * cin * (zsource + zin));
+            const fcOut = 1 / (2 * Math.PI * cout * (params.zout + rload));
+            const fcBypass = (bypassMode === 'full' && ce > 0 && re1 > 0) ? 1 / (2 * Math.PI * ce * re1) : 0;
+
+            // High-frequency limitations
+            const fBeta1 = fT / beta1;
+            const fBeta2 = fT / beta2;
+
+            // EF loading on CE stage
+            const re2ParallelRload = parallel(re2, rload);
+            const zinQ2 = beta2 * (re2Intrinsic + re2ParallelRload);
+
+            // Effective collector load for CE stage
+            const rcEffective = parallel(rc, zinQ2);
+
+            // CE stage gain
+            const av1MB = rcEffective / (re1Effective + re1Intrinsic);
+            const av1LF = bypassMode === 'full' ? rcEffective / (re1 + re1Intrinsic) : av1MB;
+
+            // EF stage gain
+            const av2 = re2ParallelRload / (re2Intrinsic + re2ParallelRload);
+
+            // Miller effect for CE stage
+            const Cbc = 2e-12;
+            const Cmiller = Cbc * (1 + av1MB);
+            const rSource = zsource > 0 ? parallel(zsource, zin) : zin;
+            const fHmiller = 1 / (2 * Math.PI * rSource * Cmiller);
+
+            const fH = Math.min(fBeta1, fBeta2, fHmiller);
+
+            // Input attenuation
+            const inputAtten = zsource > 0 ? zin / (zin + zsource) : 1;
+
+            function magnitude(f) {
+                const hpIn = f / Math.sqrt(f * f + fcIn * fcIn);
+                const hpOut = f / Math.sqrt(f * f + fcOut * fcOut);
+                const lpHF = fH / Math.sqrt(f * f + fH * fH);
+
+                let gain1;
+                if (bypassMode === 'full' && fcBypass > 0) {
+                    const bypassFactor = f / Math.sqrt(f * f + fcBypass * fcBypass);
+                    gain1 = av1LF + (av1MB - av1LF) * bypassFactor;
+                } else {
+                    gain1 = av1MB;
+                }
+
+                const result = inputAtten * gain1 * av2 * hpIn * hpOut * lpHF;
+                return Math.max(result, 1e-10);
+            }
+
+            const midF = Math.sqrt(fLow * fH);
+            const midBandGain = magnitude(Math.min(midF, fH / 10));
+
+            const graph = new Graph({
+                xMin: fMin,
+                xMax: fMax,
+                yMin: -40,
+                yMax: 10
+            });
+
+            const normFactor = midBandGain > 0 ? midBandGain : 1;
+            const curve = generateResponseCurve(fMin, fMax, f => magnitude(f) / normFactor);
+            graph.addCurve(curve, { label: 'Response' });
+
+            graph.addHLine(-3, { color: '#f88', label: '-3 dB' });
+            graph.addVLine(fLow, { color: '#88f', label: 'fL' });
+            if (isFinite(fH) && fH > 0) {
+                graph.addVLine(fH, { color: '#8a8', label: 'fH = ' + fmt(fH, 'Hz') });
+            }
+
+            return graph.toSVG();
+        }
+
+        function calculate() {
+            const vcc = parseFloat(document.getElementById('vcc').value);
+            const targetGain = parseFloat(document.getElementById('gain').value);
+            const vin = parseFloat(document.getElementById('vin').value) / 1000;
+            const zsource = parseFloat(document.getElementById('zsource').value);
+            const fLow = parseFloat(document.getElementById('fLow').value);
+            const rload = parseFloat(document.getElementById('rload').value);
+            const bypassMode = document.getElementById('bypassMode').value;
+            const ic1 = parseFloat(document.getElementById('ic1').value) / 1000;
+            const ie2 = parseFloat(document.getElementById('ie2').value) / 1000;
+            const beta1 = parseFloat(document.getElementById('beta1').value);
+            const beta2 = parseFloat(document.getElementById('beta2').value);
+            const fT = parseFloat(document.getElementById('ft').value) * 1e6;
+
+            // Intrinsic emitter resistances
+            const re1Intrinsic = 0.026 / ic1;
+            const re2Intrinsic = 0.026 / ie2;
+
+            // Design constraint: Set Ve2 for good swing (around Vcc/3)
+            const ve2 = vcc / 3;
+            const re2 = ve2 / ie2;
+
+            // Direct coupling: Vc1 = Vb2 = Ve2 + 0.7
+            const vc1 = ve2 + 0.7;
+            const vb2 = vc1;
+
+            // Q1 biasing: Ve1 for stability
+            const ve1 = Math.max(vcc * 0.1, 1.0);
+            const vb1 = ve1 + 0.7;
+            const re1 = ve1 / ic1;
+
+            // Collector resistor is determined by the required Vc1
+            const rc = (vcc - vc1) / ic1;
+
+            // Check if Rc is feasible
+            let warnings = [];
+            let notes = [];
+
+            if (rc <= 0) {
+                warnings.push('<b>Design error:</b> Cannot achieve required Vc1. Try reducing Ie2 or increasing Vcc.');
+            }
+
+            // Calculate achievable gain with this Rc
+            // EF stage loads the CE stage
+            const re2ParallelRload = parallel(re2, rload);
+            const zinQ2Base = beta2 * (re2Intrinsic + re2ParallelRload);
+
+            // Effective Rc for gain calculation (Rc || Zin_Q2)
+            const rcEffective = parallel(rc, zinQ2Base);
+
+            let re1Effective;
+            if (bypassMode === 'full') {
+                re1Effective = 0;
+            } else {
+                re1Effective = re1;
+            }
+
+            // CE stage gain (loaded by EF)
+            const av1 = rcEffective / (re1Effective + re1Intrinsic);
+
+            // EF stage gain
+            const av2 = re2ParallelRload / (re2Intrinsic + re2ParallelRload);
+
+            // Combined gain (before input/output attenuation)
+            const totalGainIntrinsic = av1 * av2;
+
+            if (totalGainIntrinsic < targetGain * 0.8) {
+                notes.push('Achievable gain (' + totalGainIntrinsic.toFixed(1) + 'x) is less than target (' + targetGain + 'x). ' +
+                    (bypassMode === 'none' ? 'Try enabling bypass mode.' : 'Try increasing Vcc or adjusting currents.'));
+            }
+
+            // Round resistors to E24
+            const r1Calc = (vcc / (10 * ic1 / beta1)) * (1 - vb1 / vcc);
+            const r2Calc = (vcc / (10 * ic1 / beta1)) * (vb1 / vcc);
+            const rtotal = vcc / (10 * ic1 / beta1);
+
+            const r1Rounded = roundToE24(rtotal - r2Calc);
+            const r2Rounded = roundToE24(r2Calc);
+            const rcRounded = roundToE24(rc);
+            const re1Rounded = roundToE24(re1);
+            const re2Rounded = roundToE24(re2);
+
+            // Recalculate with rounded values
+            const re2ParallelRloadRounded = parallel(re2Rounded, rload);
+            const zinQ2BaseRounded = beta2 * (re2Intrinsic + re2ParallelRloadRounded);
+            const rcEffectiveRounded = parallel(rcRounded, zinQ2BaseRounded);
+
+            const re1EffectiveRounded = bypassMode === 'full' ? 0 : re1Rounded;
+            const av1Rounded = rcEffectiveRounded / (re1EffectiveRounded + re1Intrinsic);
+            const av2Rounded = re2ParallelRloadRounded / (re2Intrinsic + re2ParallelRloadRounded);
+
+            // Input impedance of entire amplifier
+            const zinQ1Base = beta1 * (re1EffectiveRounded + re1Intrinsic);
+            const zin = parallel(r1Rounded, r2Rounded, zinQ1Base);
+
+            // Output impedance (EF stage)
+            // Zout = (re2' + Rc/beta2) || Re2
+            const zoutBase = re2Intrinsic + rcRounded / beta2;
+            const zout = parallel(zoutBase, re2Rounded);
+
+            // Input and output attenuation
+            const inputAtten = zsource > 0 ? zin / (zin + zsource) : 1;
+
+            // Total effective gain
+            const totalGain = inputAtten * av1Rounded * av2Rounded;
+            const voutPeak = vin * totalGain;
+
+            // Capacitors
+            const fcorner = fLow / 10;
+            const cinCalc = 1 / (2 * Math.PI * fcorner * zin);
+            const coutCalc = 1 / (2 * Math.PI * fcorner * rload);
+            const ceCalc = bypassMode === 'full' ? 10 / (2 * Math.PI * fLow * re1Rounded) : 0;
+
+            const cinRounded = roundCap(cinCalc);
+            const coutRounded = roundCap(coutCalc);
+            const ceRounded = ceCalc > 0 ? roundCap(ceCalc) : 0;
+
+            // Actual operating points with rounded values
+            const vc1Actual = vcc - ic1 * rcRounded;
+            const vb2Actual = vc1Actual;
+            const ve2Actual = vb2Actual - 0.7;
+            const ie2Actual = ve2Actual / re2Rounded;
+            const vce1 = vc1Actual - ve1;
+            const vce2 = vcc - ve2Actual;
+
+            // Swing calculation
+            // Q1: limited by Vce1 going to saturation
+            // Q2: limited by Ve2 swing
+            const swingQ1Down = vce1 - 0.3;  // Q1 can't saturate
+            const swingQ2Down = ve2Actual - 0.3;  // Q2 emitter can't go below ~0.3V
+            const swingQ2Up = vce2 - 0.3;  // Q2 needs Vce headroom
+
+            // The output swing is at Q2's emitter
+            const maxSwing = Math.min(swingQ2Down, swingQ2Up) * 2;
+
+            // Warnings
+            if (vce1 < 1) {
+                warnings.push('<b>Q1 biasing problem:</b> Vce1 (' + vce1.toFixed(1) + 'V) is too low. Q1 may saturate on signal peaks.');
+            }
+            if (vce2 < 1) {
+                warnings.push('<b>Q2 biasing problem:</b> Vce2 (' + vce2.toFixed(1) + 'V) is too low.');
+            }
+            if (voutPeak * 2 > maxSwing && maxSwing > 0) {
+                warnings.push('<b>Clipping warning:</b> Expected output (' + (voutPeak * 2).toFixed(2) + 'V p-p) exceeds swing (' + maxSwing.toFixed(2) + 'V p-p).');
+            }
+            if (zsource > zin / 3) {
+                warnings.push('<b>High source impedance:</b> Significant signal loss at input (' + ((1 - inputAtten) * 100).toFixed(0) + '%).');
+            }
+
+            const warn = document.getElementById('warning');
+            if (warnings.length > 0) {
+                warn.innerHTML = warnings.join('<br><br>');
+                warn.style.display = 'block';
+            } else {
+                warn.style.display = 'none';
+            }
+
+            // Display results
+            document.getElementById('results').style.display = 'block';
+
+            // Draw schematic
+            document.getElementById('schematic').innerHTML = drawSchematic({
+                r1: fmt(r1Rounded, 'Ω'),
+                r2: fmt(r2Rounded, 'Ω'),
+                rc: fmt(rcRounded, 'Ω'),
+                re1: fmt(re1Rounded, 'Ω'),
+                re2: fmt(re2Rounded, 'Ω'),
+                cin: fmt(cinRounded, 'F'),
+                cout: fmt(coutRounded, 'F'),
+                ce: ceRounded > 0 ? fmt(ceRounded, 'F') : null,
+                rload: fmt(rload, 'Ω'),
+                vb1: fmt(vb1, 'V'),
+                ve1: fmt(ve1, 'V'),
+                vc1: fmt(vc1Actual, 'V'),
+                ic1: fmt(ic1 * 1000, 'mA'),
+                vb2: fmt(vb2Actual, 'V'),
+                ve2: fmt(ve2Actual, 'V'),
+                ie2: fmt(ie2Actual * 1000, 'mA'),
+                av1: av1Rounded.toFixed(1),
+                av2: av2Rounded.toFixed(3),
+                totalGain: totalGain.toFixed(1),
+                zout: fmt(zout, 'Ω')
+            });
+
+            // Component values table
+            document.getElementById('r1').textContent = fmtLong(r1Rounded, 'Ω');
+            document.getElementById('r2').textContent = fmtLong(r2Rounded, 'Ω');
+            document.getElementById('rc').textContent = fmtLong(rcRounded, 'Ω');
+            document.getElementById('re1').textContent = fmtLong(re1Rounded, 'Ω');
+            document.getElementById('re2').textContent = fmtLong(re2Rounded, 'Ω');
+            document.getElementById('cin').textContent = fmtLong(cinRounded, 'F');
+            document.getElementById('cout').textContent = fmtLong(coutRounded, 'F');
+            document.getElementById('ce').textContent = ceRounded > 0 ? fmtLong(ceRounded, 'F') : 'not used';
+
+            // Operating points
+            document.getElementById('vb1').textContent = fmtLong(vb1, 'V');
+            document.getElementById('ve1').textContent = fmtLong(ve1, 'V');
+            document.getElementById('vc1').textContent = fmtLong(vc1Actual, 'V');
+            document.getElementById('ic1val').textContent = fmtLong(ic1 * 1000, 'mA');
+            document.getElementById('vce1').textContent = fmtLong(vce1, 'V');
+            document.getElementById('vb2').textContent = fmtLong(vb2Actual, 'V');
+            document.getElementById('ve2').textContent = fmtLong(ve2Actual, 'V');
+            document.getElementById('vce2').textContent = fmtLong(vce2, 'V');
+            document.getElementById('ie2val').textContent = fmtLong(ie2Actual * 1000, 'mA');
+
+            // Gain analysis
+            document.getElementById('zin').textContent = fmtLong(zin, 'Ω');
+            document.getElementById('zout').textContent = fmtLong(zout, 'Ω');
+            document.getElementById('av1').textContent = av1Rounded.toFixed(1) + 'x';
+            document.getElementById('av2').textContent = av2Rounded.toFixed(3) + ' (' + (av2Rounded * 100).toFixed(1) + '%)';
+            document.getElementById('inputAtten').textContent = (inputAtten * 100).toFixed(1) + '%';
+            document.getElementById('totalGain').textContent = totalGain.toFixed(1) + 'x';
+            document.getElementById('expectedOut').textContent = (voutPeak * 1000).toFixed(0) + ' mV peak';
+            document.getElementById('swing').textContent = maxSwing > 0 ? fmtLong(maxSwing, 'V') + ' p-p' : 'N/A';
+
+            document.getElementById('note').textContent = notes.join(' ');
+
+            // Draw waveforms
+            document.getElementById('waveforms').innerHTML = drawWaveforms({
+                vinPeak: vin,
+                voutPeak: voutPeak,
+                maxSwing: maxSwing > 0 ? maxSwing : voutPeak * 4
+            });
+
+            // Draw frequency response
+            document.getElementById('freqResponse').innerHTML = drawFrequencyResponse({
+                zin: zin,
+                zout: zout,
+                zsource: zsource,
+                rc: rcRounded,
+                re1: re1Rounded,
+                re1Effective: re1EffectiveRounded,
+                re1Intrinsic: re1Intrinsic,
+                re2: re2Rounded,
+                re2Intrinsic: re2Intrinsic,
+                rload: rload,
+                cin: cinRounded,
+                cout: coutRounded,
+                ce: ceRounded,
+                beta1: beta1,
+                beta2: beta2,
+                fLow: fLow,
+                fT: fT,
+                bypassMode: bypassMode
+            });
+        }
+
+        function resetDefaults() {
+            document.getElementById('vcc').value = '12';
+            document.getElementById('gain').value = '10';
+            document.getElementById('vin').value = '50';
+            document.getElementById('zsource').value = '1000';
+            document.getElementById('fLow').value = '20';
+            document.getElementById('rload').value = '600';
+            document.getElementById('bypassMode').value = 'none';
+            document.getElementById('ic1').value = '1';
+            document.getElementById('ie2').value = '5';
+            document.getElementById('beta1').value = '100';
+            document.getElementById('beta2').value = '100';
+            document.getElementById('ft').value = '150';
+            calculate();
+        }
+
+        window.onload = calculate;
+    </script>
+</body>
+</html>
