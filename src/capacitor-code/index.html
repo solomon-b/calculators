@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capacitor Code Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Capacitor Code Converter</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Convert between 3-digit capacitor codes and capacitance values.
+        Enter either the code or a value to convert.
+    </p>
+
+    <div class="grid gap-8 md:grid-cols-2">
+        <!-- Code to Value -->
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <h2 class="text-lg font-semibold text-gray-700 mb-3">Code → Value</h2>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1 cursor-help" title="3-digit code printed on capacitor (e.g., 104, 473, 222)">Capacitor code:</label>
+                    <input type="text" id="code" maxlength="3" placeholder="104" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono text-lg" oninput="convertFromCode()">
+                </div>
+                <div id="codeResult" class="text-sm font-mono space-y-1">
+                    <p class="text-gray-400">Enter a 3-digit code</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Value to Code -->
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <h2 class="text-lg font-semibold text-gray-700 mb-3">Value → Code</h2>
+            <div class="space-y-3">
+                <div class="flex items-center gap-2">
+                    <input type="number" id="value" step="any" min="0" placeholder="100" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm" oninput="convertFromValue()">
+                    <select id="unit" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="convertFromValue()">
+                        <option value="pF">pF</option>
+                        <option value="nF" selected>nF</option>
+                        <option value="µF">µF</option>
+                    </select>
+                </div>
+                <div id="valueResult" class="text-sm font-mono space-y-1">
+                    <p class="text-gray-400">Enter a capacitance value</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">How it works</h2>
+        <div class="text-sm text-gray-600 space-y-2">
+            <p>The 3-digit code represents capacitance in picofarads (pF):</p>
+            <ul class="list-disc ml-5 space-y-1">
+                <li><strong>First two digits:</strong> Significant figures</li>
+                <li><strong>Third digit:</strong> Number of zeros to add (multiplier)</li>
+            </ul>
+            <div class="mt-3 font-mono bg-white p-2 rounded border">
+                <p>104 → 10 + 0000 → 100,000 pF → 100 nF → 0.1 µF</p>
+                <p>473 → 47 + 000 → 47,000 pF → 47 nF</p>
+                <p>222 → 22 + 00 → 2,200 pF → 2.2 nF</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 p-4 bg-amber-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-amber-800 mb-2">Common codes</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm font-mono">
+            <div><span class="text-amber-700">104</span> = 100nF</div>
+            <div><span class="text-amber-700">103</span> = 10nF</div>
+            <div><span class="text-amber-700">102</span> = 1nF</div>
+            <div><span class="text-amber-700">101</span> = 100pF</div>
+            <div><span class="text-amber-700">473</span> = 47nF</div>
+            <div><span class="text-amber-700">472</span> = 4.7nF</div>
+            <div><span class="text-amber-700">471</span> = 470pF</div>
+            <div><span class="text-amber-700">470</span> = 47pF</div>
+            <div><span class="text-amber-700">224</span> = 220nF</div>
+            <div><span class="text-amber-700">223</span> = 22nF</div>
+            <div><span class="text-amber-700">222</span> = 2.2nF</div>
+            <div><span class="text-amber-700">221</span> = 220pF</div>
+        </div>
+    </div>
+
+    <!-- Capacitor Types -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Capacitor Types</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Different dielectrics offer different trade-offs in size, stability, voltage rating, and frequency response.
+        </p>
+
+        <div class="space-y-4 text-sm">
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Ceramic (MLCC)</h3>
+                <p class="text-gray-500 mt-1">Multi-layer ceramic. Small, cheap, good for high frequencies. Available in pF to ~100µF.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Decoupling, high-frequency filtering, timing circuits, general purpose.</p>
+                <p class="text-amber-600 mt-1"><strong>Watch out:</strong> Class 2 (X5R, X7R) lose capacitance with DC bias and temperature. A "10µF" X5R at 10V bias might only be 5µF. Class 1 (C0G/NP0) are stable but only available in small values.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Film (Polyester, Polypropylene)</h3>
+                <p class="text-gray-500 mt-1">Plastic film dielectric. Stable, low loss, self-healing. Larger than ceramic for same value.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Audio signal coupling, filters, timing, power factor correction, anywhere stability matters.</p>
+                <p class="text-gray-600 mt-1"><strong>Note:</strong> Polypropylene (PP) best for audio. Polyester (PET/Mylar) cheaper, fine for general use.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Aluminum Electrolytic</h3>
+                <p class="text-gray-500 mt-1">High capacitance in small size. Polarized - connect correctly or they explode. Limited life.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Power supply filtering, bulk energy storage, DC blocking where polarity is known.</p>
+                <p class="text-amber-600 mt-1"><strong>Watch out:</strong> High ESR limits high-frequency performance. Dry out over time, especially when hot. Don't use for signal coupling.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Tantalum</h3>
+                <p class="text-gray-500 mt-1">Polarized, smaller than aluminum electrolytic for same value. Lower ESR.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Space-constrained power filtering, decoupling where low ESR matters.</p>
+                <p class="text-amber-600 mt-1"><strong>Watch out:</strong> Fail short-circuit (fire risk). Derate voltage by 50%+ or they fail spectacularly. Many engineers avoid them entirely.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Polymer / Solid Electrolytic</h3>
+                <p class="text-gray-500 mt-1">Modern alternative to aluminum and tantalum. Very low ESR, long life, often non-polarized.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> CPU/GPU decoupling, switching power supplies, anywhere you'd use electrolytic but need better performance.</p>
+                <p class="text-gray-600 mt-1"><strong>Note:</strong> More expensive but worth it for demanding applications.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Mica / C0G Ceramic</h3>
+                <p class="text-gray-500 mt-1">Extremely stable with temperature and voltage. Very low loss. Small values only (pF range).</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> RF circuits, oscillators, precision timing, sample-and-hold, anywhere stability is critical.</p>
+            </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-blue-50 rounded border border-blue-200 text-sm text-gray-700">
+            <strong>Rule of thumb:</strong> Ceramic (C0G for precision, X7R for bulk) handles most needs.
+            Use film for audio signal path. Use polymer electrolytic for power supply bulk capacitance.
+            Avoid tantalum unless you have a good reason.
+        </div>
+    </div>
+
+    <script>
+        function convertFromCode() {
+            const codeEl = document.getElementById('code');
+            const resultEl = document.getElementById('codeResult');
+            const code = codeEl.value.trim();
+
+            if (code.length !== 3 || !/^\d{3}$/.test(code)) {
+                resultEl.innerHTML = '<p class="text-gray-400">Enter a 3-digit code</p>';
+                return;
+            }
+
+            const significand = parseInt(code.substring(0, 2));
+            const multiplier = parseInt(code.substring(2));
+            const pF = significand * Math.pow(10, multiplier);
+
+            resultEl.innerHTML = formatCapacitance(pF);
+        }
+
+        function convertFromValue() {
+            const valueEl = document.getElementById('value');
+            const unitEl = document.getElementById('unit');
+            const resultEl = document.getElementById('valueResult');
+
+            const value = parseFloat(valueEl.value);
+            if (isNaN(value) || value <= 0) {
+                resultEl.innerHTML = '<p class="text-gray-400">Enter a capacitance value</p>';
+                return;
+            }
+
+            // Convert to pF
+            let pF;
+            switch (unitEl.value) {
+                case 'pF': pF = value; break;
+                case 'nF': pF = value * 1000; break;
+                case 'µF': pF = value * 1000000; break;
+            }
+
+            // Generate code
+            const code = generateCode(pF);
+
+            let html = '';
+            if (code) {
+                html += `<p class="text-xl"><strong>${code}</strong></p>`;
+            } else {
+                html += `<p class="text-amber-600">No standard code (value out of range)</p>`;
+            }
+            html += formatCapacitanceAll(pF);
+
+            resultEl.innerHTML = html;
+        }
+
+        function generateCode(pF) {
+            if (pF < 1 || pF > 99000000000) return null;
+
+            // Find the multiplier (number of zeros)
+            let multiplier = 0;
+            let significand = pF;
+
+            while (significand >= 100 && multiplier < 9) {
+                significand /= 10;
+                multiplier++;
+            }
+
+            // Check if we get a clean 2-digit significand
+            if (significand >= 10 && significand < 100 && Number.isInteger(significand)) {
+                return String(Math.round(significand)) + multiplier;
+            }
+
+            // Try rounding
+            significand = Math.round(significand);
+            if (significand >= 10 && significand < 100) {
+                return String(significand) + multiplier;
+            }
+
+            // Handle case where significand rounds to 100
+            if (significand === 100) {
+                return '10' + (multiplier + 1);
+            }
+
+            return null;
+        }
+
+        function formatCapacitance(pF) {
+            const uF = pF / 1000000;
+            const nF = pF / 1000;
+
+            return `
+                <p>${formatNumber(uF)} µF</p>
+                <p>${formatNumber(nF)} nF</p>
+                <p><strong>${formatNumber(pF)} pF</strong></p>
+            `;
+        }
+
+        function formatCapacitanceAll(pF) {
+            const uF = pF / 1000000;
+            const nF = pF / 1000;
+            return `<span class="text-gray-500">${formatNumber(uF)} µF  /  ${formatNumber(nF)} nF  /  ${formatNumber(pF)} pF</span>`;
+        }
+
+        function formatCapacitanceCompact(pF) {
+            if (pF >= 1000000) {
+                return formatNumber(pF / 1000000) + ' µF';
+            } else if (pF >= 1000) {
+                return formatNumber(pF / 1000) + ' nF';
+            } else {
+                return formatNumber(pF) + ' pF';
+            }
+        }
+
+        function formatNumber(n) {
+            if (Number.isInteger(n)) return n.toString();
+            return n.toFixed(2).replace(/\.?0+$/, '');
+        }
+
+        // Initialize with example
+        window.onload = function() {
+            document.getElementById('code').value = '104';
+            convertFromCode();
+        };
+    </script>
+</body>
+</html>

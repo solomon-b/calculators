@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Resistor Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">LED Resistor Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Calculate the current-limiting resistor needed for an LED.
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-8">
+        <!-- Schematic -->
+        <div>
+            <svg viewBox="0 0 160 220" class="w-full max-w-[200px]">
+                <!-- Vs label -->
+                <text x="80" y="15" text-anchor="middle" font-size="12" fill="#333">Vs</text>
+                <!-- Top wire -->
+                <line x1="80" y1="20" x2="80" y2="40" stroke="#333" stroke-width="2"/>
+                <!-- Resistor -->
+                <rect x="70" y="40" width="20" height="50" fill="#d4b896" stroke="#a08060" rx="2"/>
+                <text x="100" y="70" font-size="11" fill="#2266cc" font-weight="bold">R</text>
+                <!-- Wire to LED anode -->
+                <line x1="80" y1="90" x2="80" y2="110" stroke="#333" stroke-width="2"/>
+                <!-- LED Triangle (flat top = anode, point = cathode) -->
+                <polygon points="65,110 95,110 80,140" fill="#ff6b6b" stroke="#cc5555" stroke-width="1"/>
+                <!-- LED Bar (cathode) -->
+                <line x1="65" y1="140" x2="95" y2="140" stroke="#333" stroke-width="2"/>
+                <!-- LED Arrows (light emission) -->
+                <line x1="98" y1="118" x2="112" y2="105" stroke="#ff6b6b" stroke-width="1.5"/>
+                <polygon points="115,102 108,107 111,111" fill="#ff6b6b"/>
+                <line x1="103" y1="128" x2="117" y2="115" stroke="#ff6b6b" stroke-width="1.5"/>
+                <polygon points="120,112 113,117 116,121" fill="#ff6b6b"/>
+                <!-- Vf label -->
+                <text x="50" y="128" font-size="10" fill="#666">Vf</text>
+                <!-- Bottom wire from cathode -->
+                <line x1="80" y1="140" x2="80" y2="180" stroke="#333" stroke-width="2"/>
+                <!-- Ground -->
+                <line x1="65" y1="180" x2="95" y2="180" stroke="#333" stroke-width="2"/>
+                <line x1="70" y1="185" x2="90" y2="185" stroke="#333" stroke-width="1.5"/>
+                <line x1="75" y1="190" x2="85" y2="190" stroke="#333" stroke-width="1"/>
+            </svg>
+        </div>
+
+        <!-- Calculator -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Your power supply voltage">Supply Voltage (Vs)</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="vs" value="5" step="0.1" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calculate()">
+                    <span class="text-gray-500">V</span>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm text-gray-600 mb-1 cursor-help" title="LED forward voltage drop (see table below)">LED Forward Voltage (Vf)</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="vf" value="2.0" step="0.1" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calculate()">
+                    <span class="text-gray-500">V</span>
+                    <select id="ledPreset" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="applyPreset()">
+                        <option value="">LED type...</option>
+                        <option value="1.8">Red (1.8V)</option>
+                        <option value="2.0">Yellow (2.0V)</option>
+                        <option value="2.1">Green (2.1V)</option>
+                        <option value="3.2">Blue (3.2V)</option>
+                        <option value="3.2">White (3.2V)</option>
+                        <option value="1.2">IR (1.2V)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Desired LED current (typ. 10-20mA for standard LEDs)">LED Current (I)</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="current" value="10" step="1" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calculate()">
+                    <span class="text-gray-500">mA</span>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t">
+                <div class="text-sm text-gray-600 mb-1">Required Resistor</div>
+                <div class="text-2xl font-mono font-bold text-primary" id="resistance">300 Ω</div>
+                <p class="text-sm text-gray-500 mt-1">Nearest E24: <span id="nearestE24" class="font-mono">300 Ω</span></p>
+            </div>
+
+            <div class="text-sm text-gray-500 space-y-1">
+                <p>Power dissipation: <span id="power" class="font-mono">3.0 mW</span></p>
+                <p>Resistor rating needed: <span id="rating" class="font-mono">1/8 W is fine</span></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="warning" class="hidden mt-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm"></div>
+
+    <!-- LED Reference -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Typical LED Forward Voltages</h2>
+        <div class="overflow-x-auto">
+            <table class="text-sm w-full">
+                <thead>
+                    <tr class="border-b">
+                        <th class="text-left py-2 pr-4">Color</th>
+                        <th class="text-center py-2 px-2">Vf (typ)</th>
+                        <th class="text-center py-2 px-2">If (typ)</th>
+                        <th class="text-left py-2 px-2">Notes</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-600">
+                    <tr class="border-b border-gray-200"><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span>Red</td><td class="text-center">1.8 - 2.2V</td><td class="text-center">20mA</td><td>Most efficient</td></tr>
+                    <tr class="border-b border-gray-200"><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-orange-400 mr-2"></span>Orange</td><td class="text-center">2.0 - 2.2V</td><td class="text-center">20mA</td><td></td></tr>
+                    <tr class="border-b border-gray-200"><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-yellow-400 mr-2"></span>Yellow</td><td class="text-center">2.0 - 2.2V</td><td class="text-center">20mA</td><td></td></tr>
+                    <tr class="border-b border-gray-200"><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-2"></span>Green</td><td class="text-center">2.0 - 3.2V</td><td class="text-center">20mA</td><td>Wide range</td></tr>
+                    <tr class="border-b border-gray-200"><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span>Blue</td><td class="text-center">3.0 - 3.5V</td><td class="text-center">20mA</td><td>Higher voltage</td></tr>
+                    <tr class="border-b border-gray-200"><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-white border border-gray-300 mr-2"></span>White</td><td class="text-center">3.0 - 3.5V</td><td class="text-center">20mA</td><td>Blue + phosphor</td></tr>
+                    <tr class="border-b border-gray-200"><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-gray-800 mr-2"></span>IR</td><td class="text-center">1.1 - 1.5V</td><td class="text-center">20-100mA</td><td>Invisible</td></tr>
+                    <tr><td class="py-2 pr-4"><span class="inline-block w-3 h-3 rounded-full bg-purple-400 mr-2"></span>UV</td><td class="text-center">3.3 - 4.0V</td><td class="text-center">20mA</td><td>Needs 5V+ supply</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Formula</h2>
+        <p class="font-mono text-gray-600">R = (Vs - Vf) / I</p>
+        <div class="mt-4 text-sm text-gray-600 space-y-1">
+            <p><strong>Multiple LEDs in series:</strong> R = (Vs - n×Vf) / I, where n is the number of LEDs</p>
+            <p><strong>Brightness control:</strong> LED brightness is roughly proportional to current. 5mA = dim indicator, 20mA = bright.</p>
+        </div>
+    </div>
+
+    <script src="../common.js"></script>
+    <script>
+        function calculate() {
+            const vs = parseFloat(document.getElementById('vs').value) || 0;
+            const vf = parseFloat(document.getElementById('vf').value) || 0;
+            const current = (parseFloat(document.getElementById('current').value) || 0) / 1000; // mA to A
+
+            const warning = document.getElementById('warning');
+
+            if (vs <= vf) {
+                warning.textContent = 'Supply voltage must be greater than LED forward voltage!';
+                warning.classList.remove('hidden');
+                document.getElementById('resistance').textContent = '—';
+                document.getElementById('nearestE24').textContent = '—';
+                document.getElementById('power').textContent = '—';
+                document.getElementById('rating').textContent = '—';
+                return;
+            }
+
+            if (current <= 0) {
+                warning.classList.add('hidden');
+                document.getElementById('resistance').textContent = '—';
+                return;
+            }
+
+            warning.classList.add('hidden');
+
+            const vr = vs - vf; // Voltage across resistor
+            const r = vr / current;
+            const power = vr * current;
+
+            document.getElementById('resistance').textContent = formatResistance(r);
+
+            // Find nearest E24
+            if (typeof roundToE24 === 'function') {
+                const re24 = roundToE24(r);
+                document.getElementById('nearestE24').textContent = formatResistance(re24);
+            }
+
+            document.getElementById('power').textContent = formatPower(power);
+
+            // Recommend resistor rating
+            let rating;
+            if (power < 0.1) rating = '1/8 W is fine';
+            else if (power < 0.2) rating = '1/4 W is fine';
+            else if (power < 0.4) rating = '1/2 W recommended';
+            else if (power < 0.9) rating = '1 W recommended';
+            else rating = power.toFixed(1) + ' W minimum!';
+
+            document.getElementById('rating').textContent = rating;
+        }
+
+        function applyPreset() {
+            const preset = document.getElementById('ledPreset').value;
+            if (preset) {
+                document.getElementById('vf').value = preset;
+                calculate();
+            }
+        }
+
+        function formatResistance(ohms) {
+            if (ohms >= 1000000) return (ohms / 1000000).toFixed(2) + ' MΩ';
+            if (ohms >= 1000) return (ohms / 1000).toFixed(2) + ' kΩ';
+            return ohms.toFixed(0) + ' Ω';
+        }
+
+        function formatPower(watts) {
+            if (watts >= 1) return watts.toFixed(2) + ' W';
+            return (watts * 1000).toFixed(1) + ' mW';
+        }
+
+        window.onload = calculate;
+    </script>
+</body>
+</html>

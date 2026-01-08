@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dB Converter & Audio Levels</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">dB Converter & Audio Levels</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Convert between voltage, dBV, dBu, and dBm. Plus a guide to the confusing world of audio levels.
+    </p>
+
+    <!-- Converter -->
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div class="p-3 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="RMS voltage">Voltage</label>
+            <div class="flex items-center gap-1">
+                <input type="number" id="voltage" step="any" min="0" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="convert('voltage')">
+                <select id="voltageUnit" class="px-1 py-1 border border-gray-300 rounded text-xs" onchange="convert('voltage')">
+                    <option value="1">V</option>
+                    <option value="0.001">mV</option>
+                    <option value="0.000001">µV</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="p-3 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Decibels relative to 1 volt RMS">dBV</label>
+            <input type="number" id="dbv" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="convert('dbv')">
+            <span class="text-xs text-gray-400">ref: 1V</span>
+        </div>
+
+        <div class="p-3 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Decibels relative to 0.775V RMS (pro audio standard)">dBu</label>
+            <input type="number" id="dbu" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="convert('dbu')">
+            <span class="text-xs text-gray-400">ref: 0.775V</span>
+        </div>
+
+        <div class="p-3 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Decibels relative to 1 milliwatt (requires impedance)">dBm</label>
+            <input type="number" id="dbm" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="convert('dbm')">
+            <span class="text-xs text-gray-400">ref: 1mW @ <input type="number" id="impedance" value="600" class="w-12 px-1 border border-gray-200 rounded text-xs" oninput="convert('dbm')">Ω</span>
+        </div>
+    </div>
+
+    <div class="mb-6 p-3 bg-blue-50 rounded-lg">
+        <div class="flex items-center gap-4 text-sm">
+            <span class="text-gray-600">Power ratio:</span>
+            <span id="powerRatio" class="font-mono">1.000×</span>
+            <span class="text-gray-600">Voltage ratio:</span>
+            <span id="voltageRatio" class="font-mono">1.000×</span>
+        </div>
+    </div>
+
+    <button onclick="clearAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm mb-8">Clear</button>
+
+    <!-- Audio Level Standards -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Audio Line Level Standards</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            "Line level" isn't one thing—it's at least three different standards that evolved from different eras and use cases.
+        </p>
+
+        <div class="overflow-x-auto">
+            <table class="text-sm w-full">
+                <thead>
+                    <tr class="border-b">
+                        <th class="text-left py-2 pr-4">Standard</th>
+                        <th class="text-center py-2 px-2">Nominal</th>
+                        <th class="text-center py-2 px-2">Voltage</th>
+                        <th class="text-left py-2 px-2">Where used</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-600">
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-medium">Professional (+4 dBu)</td>
+                        <td class="text-center">+4 dBu</td>
+                        <td class="text-center font-mono">1.228 V</td>
+                        <td>Studios, mixers, pro gear</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-medium">Consumer (-10 dBV)</td>
+                        <td class="text-center">-10 dBV</td>
+                        <td class="text-center font-mono">0.316 V</td>
+                        <td>Home audio, DJ gear, some synths</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-medium">Broadcast (+8 dBu)</td>
+                        <td class="text-center">+8 dBu</td>
+                        <td class="text-center font-mono">1.947 V</td>
+                        <td>Radio, TV broadcast</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-4 p-3 bg-white rounded border text-sm text-gray-600">
+            <strong>The gap:</strong> Pro (+4 dBu) is about <strong>11.8 dB hotter</strong> than consumer (-10 dBV).
+            That's almost 4× the voltage! Plugging consumer gear into pro inputs sounds quiet; pro outputs into consumer inputs can clip badly.
+        </div>
+    </div>
+
+    <!-- VU Meters -->
+    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">VU Meters & Headroom</h2>
+
+        <div class="space-y-4 text-sm text-gray-600">
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">What is 0 VU?</h3>
+                <p class="mt-1">
+                    A VU meter's "0" is a <em>nominal operating level</em>, not maximum. On pro gear, <strong>0 VU = +4 dBu</strong>.
+                    The meter is deliberately sluggish (300ms integration time) to show perceived loudness, not peaks.
+                </p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Headroom</h3>
+                <p class="mt-1">
+                    Pro analog gear typically has <strong>20+ dB of headroom</strong> above 0 VU before clipping.
+                    That means +4 dBu nominal, but the electronics can handle +24 dBu peaks (~12V!).
+                    This headroom is why analog gear sounds "forgiving"—transients aren't crushed.
+                </p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Digital 0 dBFS</h3>
+                <p class="mt-1">
+                    Digital has <strong>no headroom above 0 dBFS</strong>—that's absolute maximum. Exceeding it causes hard clipping.
+                    The mapping between analog and digital varies by device, but commonly:
+                </p>
+                <ul class="mt-2 ml-4 list-disc space-y-1">
+                    <li>+4 dBu → -18 dBFS (leaves 18dB headroom, EBU standard)</li>
+                    <li>+4 dBu → -20 dBFS (SMPTE standard)</li>
+                    <li>+4 dBu → -14 dBFS (some cheaper gear)</li>
+                </ul>
+                <p class="mt-2 text-amber-600">
+                    <strong>This varies wildly between devices.</strong> Always check your specific gear's calibration.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- dB Reference Guide -->
+    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">dB Reference Points Explained</h2>
+
+        <div class="space-y-4 text-sm">
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">dBV <span class="font-normal text-gray-500">(decibels relative to 1 volt)</span></h3>
+                <p class="text-gray-600 mt-1">
+                    Simple voltage reference. 0 dBV = 1V RMS. Used in consumer audio specs.
+                </p>
+                <p class="font-mono text-gray-500 mt-1">dBV = 20 × log₁₀(V / 1V)</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">dBu <span class="font-normal text-gray-500">(decibels relative to 0.775V)</span></h3>
+                <p class="text-gray-600 mt-1">
+                    Professional audio standard. 0 dBu = 0.775V RMS. Why 0.775V? It's the voltage that dissipates 1mW in 600Ω
+                    (the old telephone line impedance). The "u" means "unterminated"—the value doesn't depend on actual load impedance.
+                </p>
+                <p class="font-mono text-gray-500 mt-1">dBu = 20 × log₁₀(V / 0.775V)</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">dBm <span class="font-normal text-gray-500">(decibels relative to 1 milliwatt)</span></h3>
+                <p class="text-gray-600 mt-1">
+                    Power reference, requires knowing impedance. 0 dBm = 1mW. In a 600Ω system, 0 dBm = 0 dBu = 0.775V.
+                    In a 50Ω RF system, 0 dBm = 0.224V. <strong>Only meaningful when impedance is specified.</strong>
+                </p>
+                <p class="font-mono text-gray-500 mt-1">dBm = 10 × log₁₀(P / 1mW)</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Relationship</h3>
+                <p class="text-gray-600 mt-1">
+                    dBu and dBV differ by a constant: <strong>dBu = dBV + 2.21 dB</strong>
+                </p>
+                <p class="text-gray-600 mt-1">
+                    This is because 20 × log₁₀(1V / 0.775V) = 2.21 dB
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Common Values -->
+    <div class="mt-4 p-4 bg-amber-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-amber-800 mb-3">Quick Reference</h2>
+        <div class="grid sm:grid-cols-2 gap-4 text-sm">
+            <div>
+                <h3 class="font-medium text-gray-700 mb-2">Common Levels</h3>
+                <table class="w-full font-mono text-gray-600">
+                    <tr><td>+4 dBu</td><td>=</td><td>1.228V</td><td class="text-gray-400 pl-2">Pro nominal</td></tr>
+                    <tr><td>0 dBu</td><td>=</td><td>0.775V</td><td class="text-gray-400 pl-2"></td></tr>
+                    <tr><td>-10 dBV</td><td>=</td><td>0.316V</td><td class="text-gray-400 pl-2">Consumer</td></tr>
+                    <tr><td>0 dBV</td><td>=</td><td>1.000V</td><td class="text-gray-400 pl-2"></td></tr>
+                    <tr><td>+24 dBu</td><td>=</td><td>12.3V</td><td class="text-gray-400 pl-2">Pro max</td></tr>
+                </table>
+            </div>
+            <div>
+                <h3 class="font-medium text-gray-700 mb-2">dB Math Shortcuts</h3>
+                <table class="w-full font-mono text-gray-600">
+                    <tr><td>+6 dB</td><td>=</td><td>2× voltage</td></tr>
+                    <tr><td>+20 dB</td><td>=</td><td>10× voltage</td></tr>
+                    <tr><td>-6 dB</td><td>=</td><td>0.5× voltage</td></tr>
+                    <tr><td>-20 dB</td><td>=</td><td>0.1× voltage</td></tr>
+                    <tr><td>+3 dB</td><td>=</td><td>2× power</td></tr>
+                    <tr><td>+10 dB</td><td>=</td><td>10× power</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Practical Tips -->
+    <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Practical Tips</h2>
+        <div class="space-y-3 text-sm text-gray-600">
+            <p>
+                <strong>Connecting consumer gear to pro inputs:</strong> Turn up the input gain, or use a +12dB boost.
+                Some mixers have a "-10/+4" switch for this.
+            </p>
+            <p>
+                <strong>Connecting pro gear to consumer inputs:</strong> Pad the signal down ~12dB, or just turn down the output.
+                Watch for clipping on the consumer gear's input stage.
+            </p>
+            <p>
+                <strong>Balanced vs unbalanced:</strong> Balanced connections (XLR, TRS) reject noise and are standard in pro gear.
+                Unbalanced (TS, RCA) is fine for short runs. This is separate from level—you can have balanced -10dBV or unbalanced +4dBu.
+            </p>
+            <p>
+                <strong>Impedance matching:</strong> Modern audio is "voltage matching" (high Z input, low Z output), not the old 600Ω
+                impedance matching. Don't worry about matching impedances unless you're working with vintage gear or RF.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const REF_DBV = 1.0;        // 1V
+        const REF_DBU = 0.7746;     // sqrt(0.001 * 600) = voltage for 1mW into 600Ω
+
+        function convert(source) {
+            let voltage;
+            const impedance = parseFloat(document.getElementById('impedance').value) || 600;
+
+            if (source === 'voltage') {
+                const v = parseFloat(document.getElementById('voltage').value);
+                const unit = parseFloat(document.getElementById('voltageUnit').value);
+                voltage = v * unit;
+            } else if (source === 'dbv') {
+                const dbv = parseFloat(document.getElementById('dbv').value);
+                voltage = REF_DBV * Math.pow(10, dbv / 20);
+            } else if (source === 'dbu') {
+                const dbu = parseFloat(document.getElementById('dbu').value);
+                voltage = REF_DBU * Math.pow(10, dbu / 20);
+            } else if (source === 'dbm') {
+                const dbm = parseFloat(document.getElementById('dbm').value);
+                const powerW = 0.001 * Math.pow(10, dbm / 10);
+                voltage = Math.sqrt(powerW * impedance);
+            }
+
+            if (isNaN(voltage) || voltage <= 0) {
+                return;
+            }
+
+            // Calculate all values
+            const dbv = 20 * Math.log10(voltage / REF_DBV);
+            const dbu = 20 * Math.log10(voltage / REF_DBU);
+            const powerW = (voltage * voltage) / impedance;
+            const dbm = 10 * Math.log10(powerW / 0.001);
+
+            // Update fields (except source)
+            if (source !== 'voltage') {
+                const unit = parseFloat(document.getElementById('voltageUnit').value);
+                document.getElementById('voltage').value = (voltage / unit).toPrecision(4);
+            }
+            if (source !== 'dbv') {
+                document.getElementById('dbv').value = dbv.toFixed(2);
+            }
+            if (source !== 'dbu') {
+                document.getElementById('dbu').value = dbu.toFixed(2);
+            }
+            if (source !== 'dbm') {
+                document.getElementById('dbm').value = dbm.toFixed(2);
+            }
+
+            // Update ratios (relative to 1V)
+            const voltageRatio = voltage / 1.0;
+            const powerRatio = voltageRatio * voltageRatio;
+            document.getElementById('voltageRatio').textContent = formatRatio(voltageRatio) + '×';
+            document.getElementById('powerRatio').textContent = formatRatio(powerRatio) + '×';
+        }
+
+        function formatRatio(r) {
+            if (r >= 100) return r.toFixed(0);
+            if (r >= 10) return r.toFixed(1);
+            if (r >= 1) return r.toFixed(2);
+            if (r >= 0.01) return r.toFixed(3);
+            return r.toExponential(2);
+        }
+
+        function clearAll() {
+            document.getElementById('voltage').value = '';
+            document.getElementById('dbv').value = '';
+            document.getElementById('dbu').value = '';
+            document.getElementById('dbm').value = '';
+            document.getElementById('voltageRatio').textContent = '—';
+            document.getElementById('powerRatio').textContent = '—';
+        }
+
+        // Initialize with pro line level
+        window.onload = function() {
+            document.getElementById('dbu').value = '4';
+            convert('dbu');
+        };
+    </script>
+</body>
+</html>

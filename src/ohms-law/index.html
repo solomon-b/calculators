@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohm's Law Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Ohm's Law Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Enter any two values to calculate the other two.
+    </p>
+
+    <div class="grid gap-4 sm:grid-cols-2 mb-6">
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Voltage - electrical pressure (Volts)">Voltage (V)</label>
+            <div class="flex items-center gap-2">
+                <input type="number" id="voltage" step="any" min="0" class="w-full px-3 py-2 border border-gray-300 rounded text-lg font-mono" oninput="calculate('voltage')">
+                <span class="text-gray-500">V</span>
+            </div>
+        </div>
+
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Current - flow of charge (Amps)">Current (I)</label>
+            <div class="flex items-center gap-2">
+                <input type="number" id="current" step="any" min="0" class="w-full px-3 py-2 border border-gray-300 rounded text-lg font-mono" oninput="calculate('current')">
+                <select id="currentUnit" class="px-2 py-2 border border-gray-300 rounded text-sm" onchange="calculate('current')">
+                    <option value="1">A</option>
+                    <option value="0.001" selected>mA</option>
+                    <option value="0.000001">µA</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Resistance - opposition to current flow (Ohms)">Resistance (R)</label>
+            <div class="flex items-center gap-2">
+                <input type="number" id="resistance" step="any" min="0" class="w-full px-3 py-2 border border-gray-300 rounded text-lg font-mono" oninput="calculate('resistance')">
+                <select id="resistanceUnit" class="px-2 py-2 border border-gray-300 rounded text-sm" onchange="calculate('resistance')">
+                    <option value="1">Ω</option>
+                    <option value="1000" selected>kΩ</option>
+                    <option value="1000000">MΩ</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1 cursor-help" title="Power - rate of energy transfer (Watts)">Power (P)</label>
+            <div class="flex items-center gap-2">
+                <input type="number" id="power" step="any" min="0" class="w-full px-3 py-2 border border-gray-300 rounded text-lg font-mono" oninput="calculate('power')">
+                <select id="powerUnit" class="px-2 py-2 border border-gray-300 rounded text-sm" onchange="calculate('power')">
+                    <option value="1">W</option>
+                    <option value="0.001" selected>mW</option>
+                    <option value="0.000001">µW</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <button onclick="clearAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">Clear All</button>
+
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Formulas</h2>
+        <div class="grid sm:grid-cols-2 gap-4 text-sm font-mono">
+            <div>
+                <p class="text-gray-600">V = I × R</p>
+                <p class="text-gray-600">I = V / R</p>
+            </div>
+            <div>
+                <p class="text-gray-600">R = V / I</p>
+                <p class="text-gray-600">P = V × I = I²R = V²/R</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 p-4 bg-amber-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-amber-800 mb-2">Quick Reference</h2>
+        <div class="text-sm text-gray-700 space-y-1">
+            <p><strong>1 mA through 1 kΩ</strong> = 1 V, 1 mW</p>
+            <p><strong>10 mA through 100 Ω</strong> = 1 V, 10 mW</p>
+            <p><strong>20 mA at 5 V</strong> = 250 Ω, 100 mW (typical LED)</p>
+        </div>
+    </div>
+
+    <script>
+        let lastEdited = [];
+
+        function getValue(id, unitId) {
+            const val = parseFloat(document.getElementById(id).value);
+            const unit = unitId ? parseFloat(document.getElementById(unitId).value) : 1;
+            return isNaN(val) ? null : val * unit;
+        }
+
+        function setValue(id, unitId, value) {
+            if (value === null || !isFinite(value)) return;
+            const unit = unitId ? parseFloat(document.getElementById(unitId).value) : 1;
+            document.getElementById(id).value = (value / unit).toPrecision(4).replace(/\.?0+$/, '');
+        }
+
+        function calculate(edited) {
+            // Track last two edited fields
+            if (lastEdited[lastEdited.length - 1] !== edited) {
+                lastEdited.push(edited);
+                if (lastEdited.length > 2) lastEdited.shift();
+            }
+
+            const V = getValue('voltage');
+            const I = getValue('current', 'currentUnit');
+            const R = getValue('resistance', 'resistanceUnit');
+            const P = getValue('power', 'powerUnit');
+
+            // Count known values
+            const known = [V, I, R, P].filter(x => x !== null).length;
+            if (known < 2) return;
+
+            let newV = V, newI = I, newR = R, newP = P;
+
+            // Calculate unknowns based on what we have
+            if (V !== null && I !== null) {
+                newR = V / I;
+                newP = V * I;
+            } else if (V !== null && R !== null) {
+                newI = V / R;
+                newP = V * V / R;
+            } else if (V !== null && P !== null) {
+                newI = P / V;
+                newR = V * V / P;
+            } else if (I !== null && R !== null) {
+                newV = I * R;
+                newP = I * I * R;
+            } else if (I !== null && P !== null) {
+                newV = P / I;
+                newR = P / (I * I);
+            } else if (R !== null && P !== null) {
+                newV = Math.sqrt(P * R);
+                newI = Math.sqrt(P / R);
+            }
+
+            // Update fields that weren't just edited
+            if (!lastEdited.includes('voltage')) setValue('voltage', null, newV);
+            if (!lastEdited.includes('current')) setValue('current', 'currentUnit', newI);
+            if (!lastEdited.includes('resistance')) setValue('resistance', 'resistanceUnit', newR);
+            if (!lastEdited.includes('power')) setValue('power', 'powerUnit', newP);
+        }
+
+        function clearAll() {
+            document.getElementById('voltage').value = '';
+            document.getElementById('current').value = '';
+            document.getElementById('resistance').value = '';
+            document.getElementById('power').value = '';
+            lastEdited = [];
+        }
+    </script>
+</body>
+</html>

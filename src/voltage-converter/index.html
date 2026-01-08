@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voltage Converter (Vpp / Vpeak / Vrms)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Voltage Converter</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Convert between peak-to-peak, peak, and RMS voltage for a sine wave.
+        Enter any value and the others will update automatically.
+    </p>
+
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-3 pr-4 cursor-help border-b border-dotted border-gray-400" title="Peak-to-peak voltage: the full swing from negative peak to positive peak">V<sub>pp</sub> (peak-to-peak):</td>
+                <td class="py-3">
+                    <input type="number" id="vpp" step="0.1" min="0" class="w-28 px-2 py-1 border border-gray-300 rounded text-sm" oninput="convert('vpp')"> V
+                </td>
+            </tr>
+            <tr>
+                <td class="py-3 pr-4 cursor-help border-b border-dotted border-gray-400" title="Peak voltage: amplitude from zero to maximum (half of Vpp)">V<sub>peak</sub> (peak):</td>
+                <td class="py-3">
+                    <input type="number" id="vpeak" step="0.1" min="0" class="w-28 px-2 py-1 border border-gray-300 rounded text-sm" oninput="convert('vpeak')"> V
+                </td>
+            </tr>
+            <tr>
+                <td class="py-3 pr-4 cursor-help border-b border-dotted border-gray-400" title="RMS voltage: equivalent DC voltage that delivers the same power. For sine waves, Vrms = Vpeak / √2">V<sub>rms</sub> (RMS):</td>
+                <td class="py-3">
+                    <input type="number" id="vrms" step="0.1" min="0" class="w-28 px-2 py-1 border border-gray-300 rounded text-sm" oninput="convert('vrms')"> V
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <p class="text-sm text-gray-400 mt-4">Hover over labels for explanations.</p>
+
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Formulas (sine wave)</h2>
+        <div class="text-sm text-gray-600 space-y-2 font-mono">
+            <p>V<sub>peak</sub> = V<sub>pp</sub> / 2</p>
+            <p>V<sub>rms</sub> = V<sub>peak</sub> / √2 ≈ V<sub>peak</sub> × 0.707</p>
+            <p>V<sub>rms</sub> = V<sub>pp</sub> / (2√2) ≈ V<sub>pp</sub> × 0.354</p>
+        </div>
+    </div>
+
+    <script>
+        const SQRT2 = Math.sqrt(2);
+
+        function convert(source) {
+            const vppEl = document.getElementById('vpp');
+            const vpeakEl = document.getElementById('vpeak');
+            const vrmsEl = document.getElementById('vrms');
+
+            let vpp, vpeak, vrms;
+
+            if (source === 'vpp') {
+                vpp = parseFloat(vppEl.value) || 0;
+                vpeak = vpp / 2;
+                vrms = vpeak / SQRT2;
+            } else if (source === 'vpeak') {
+                vpeak = parseFloat(vpeakEl.value) || 0;
+                vpp = vpeak * 2;
+                vrms = vpeak / SQRT2;
+            } else if (source === 'vrms') {
+                vrms = parseFloat(vrmsEl.value) || 0;
+                vpeak = vrms * SQRT2;
+                vpp = vpeak * 2;
+            }
+
+            // Update fields (except the one being edited)
+            if (source !== 'vpp') vppEl.value = vpp.toFixed(3);
+            if (source !== 'vpeak') vpeakEl.value = vpeak.toFixed(3);
+            if (source !== 'vrms') vrmsEl.value = vrms.toFixed(3);
+        }
+
+        // Initialize with a common value
+        window.onload = function() {
+            document.getElementById('vrms').value = '1';
+            convert('vrms');
+        };
+    </script>
+</body>
+</html>

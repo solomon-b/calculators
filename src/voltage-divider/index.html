@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voltage Divider Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Voltage Divider Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Calculate output voltage, or find resistor values for a desired output.
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-8">
+        <!-- Schematic -->
+        <div>
+            <svg viewBox="0 0 160 200" class="w-full max-w-[200px]">
+                <!-- Vin label -->
+                <text x="80" y="15" text-anchor="middle" font-size="12" fill="#333">Vin</text>
+                <!-- Top wire -->
+                <line x1="80" y1="20" x2="80" y2="40" stroke="#333" stroke-width="2"/>
+                <!-- R1 -->
+                <rect x="70" y="40" width="20" height="50" fill="#d4b896" stroke="#a08060" rx="2"/>
+                <text x="100" y="70" font-size="11" fill="#2266cc" font-weight="bold">R1</text>
+                <!-- Middle node -->
+                <line x1="80" y1="90" x2="80" y2="110" stroke="#333" stroke-width="2"/>
+                <circle cx="80" cy="100" r="3" fill="#333"/>
+                <line x1="80" y1="100" x2="130" y2="100" stroke="#333" stroke-width="2"/>
+                <text x="140" y="104" font-size="12" fill="#333">Vout</text>
+                <!-- R2 -->
+                <rect x="70" y="110" width="20" height="50" fill="#d4b896" stroke="#a08060" rx="2"/>
+                <text x="100" y="140" font-size="11" fill="#2266cc" font-weight="bold">R2</text>
+                <!-- Bottom wire -->
+                <line x1="80" y1="160" x2="80" y2="180" stroke="#333" stroke-width="2"/>
+                <!-- Ground -->
+                <line x1="65" y1="180" x2="95" y2="180" stroke="#333" stroke-width="2"/>
+                <line x1="70" y1="185" x2="90" y2="185" stroke="#333" stroke-width="1.5"/>
+                <line x1="75" y1="190" x2="85" y2="190" stroke="#333" stroke-width="1"/>
+            </svg>
+        </div>
+
+        <!-- Calculator -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">Input Voltage (Vin)</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="vin" value="5" step="any" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calculate()">
+                    <span class="text-gray-500">V</span>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">R1 (top resistor)</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="r1" value="10" step="any" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calculate()">
+                    <select id="r1Unit" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="calculate()">
+                        <option value="1">Ω</option>
+                        <option value="1000" selected>kΩ</option>
+                        <option value="1000000">MΩ</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">R2 (bottom resistor)</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="r2" value="10" step="any" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calculate()">
+                    <select id="r2Unit" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="calculate()">
+                        <option value="1">Ω</option>
+                        <option value="1000" selected>kΩ</option>
+                        <option value="1000000">MΩ</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t">
+                <div class="text-sm text-gray-600 mb-1">Output Voltage (Vout)</div>
+                <div class="text-2xl font-mono font-bold text-primary" id="vout">2.500 V</div>
+            </div>
+
+            <div class="text-sm text-gray-500 space-y-1">
+                <p>Ratio: <span id="ratio" class="font-mono">50.0%</span></p>
+                <p>Current: <span id="current" class="font-mono">0.25 mA</span></p>
+                <p>Output impedance: <span id="zout" class="font-mono">5.00 kΩ</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reverse Calculator -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Find Resistors for Target Voltage</h2>
+        <div class="grid sm:grid-cols-3 gap-4 items-end">
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">Target Vout</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="targetVout" value="3.3" step="any" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="findResistors()">
+                    <span class="text-gray-500">V</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">From Vin</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="targetVin" value="5" step="any" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="findResistors()">
+                    <span class="text-gray-500">V</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-600 mb-1">Preferred R2</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="preferR2" value="10" step="any" min="0" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="findResistors()">
+                    <span class="text-gray-500">kΩ</span>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 p-3 bg-white rounded border">
+            <p class="text-sm text-gray-600">Required R1: <span id="requiredR1" class="font-mono font-bold text-primary">5.15 kΩ</span></p>
+            <p class="text-sm text-gray-500 mt-1">Nearest E24: <span id="nearestR1" class="font-mono">5.1 kΩ</span> → <span id="actualVout" class="font-mono">3.31 V</span></p>
+        </div>
+    </div>
+
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Formula</h2>
+        <p class="font-mono text-gray-600">Vout = Vin × R2 / (R1 + R2)</p>
+        <div class="mt-4 text-sm text-gray-600 space-y-1">
+            <p><strong>Output impedance:</strong> Zout = R1 || R2 (parallel combination)</p>
+            <p><strong>Loading effect:</strong> If your load resistance is less than ~10× Zout, the output voltage will drop. Use lower resistor values or add a buffer.</p>
+        </div>
+    </div>
+
+    <script src="../common.js"></script>
+    <script>
+        function calculate() {
+            const vin = parseFloat(document.getElementById('vin').value) || 0;
+            const r1 = (parseFloat(document.getElementById('r1').value) || 0) * parseFloat(document.getElementById('r1Unit').value);
+            const r2 = (parseFloat(document.getElementById('r2').value) || 0) * parseFloat(document.getElementById('r2Unit').value);
+
+            if (r1 + r2 === 0) return;
+
+            const vout = vin * r2 / (r1 + r2);
+            const ratio = r2 / (r1 + r2) * 100;
+            const current = vin / (r1 + r2);
+            const zout = (r1 * r2) / (r1 + r2);
+
+            document.getElementById('vout').textContent = vout.toFixed(3) + ' V';
+            document.getElementById('ratio').textContent = ratio.toFixed(1) + '%';
+            document.getElementById('current').textContent = formatCurrent(current);
+            document.getElementById('zout').textContent = formatResistance(zout);
+        }
+
+        function findResistors() {
+            const vout = parseFloat(document.getElementById('targetVout').value) || 0;
+            const vin = parseFloat(document.getElementById('targetVin').value) || 0;
+            const r2 = (parseFloat(document.getElementById('preferR2').value) || 0) * 1000;
+
+            if (vout >= vin || vout <= 0 || r2 <= 0) {
+                document.getElementById('requiredR1').textContent = '—';
+                document.getElementById('nearestR1').textContent = '—';
+                document.getElementById('actualVout').textContent = '—';
+                return;
+            }
+
+            // Vout = Vin * R2 / (R1 + R2)
+            // Vout * (R1 + R2) = Vin * R2
+            // Vout * R1 = Vin * R2 - Vout * R2
+            // R1 = R2 * (Vin - Vout) / Vout
+            const r1 = r2 * (vin - vout) / vout;
+
+            document.getElementById('requiredR1').textContent = formatResistance(r1);
+
+            // Find nearest E24 value
+            if (typeof roundToE24 === 'function') {
+                const r1e24 = roundToE24(r1);
+                const actualVout = vin * r2 / (r1e24 + r2);
+                document.getElementById('nearestR1').textContent = formatResistance(r1e24);
+                document.getElementById('actualVout').textContent = actualVout.toFixed(2) + ' V';
+            } else {
+                document.getElementById('nearestR1').textContent = '—';
+                document.getElementById('actualVout').textContent = '—';
+            }
+        }
+
+        function formatResistance(ohms) {
+            if (ohms >= 1000000) return (ohms / 1000000).toFixed(2) + ' MΩ';
+            if (ohms >= 1000) return (ohms / 1000).toFixed(2) + ' kΩ';
+            return ohms.toFixed(1) + ' Ω';
+        }
+
+        function formatCurrent(amps) {
+            if (amps >= 1) return amps.toFixed(2) + ' A';
+            if (amps >= 0.001) return (amps * 1000).toFixed(2) + ' mA';
+            return (amps * 1000000).toFixed(2) + ' µA';
+        }
+
+        window.onload = function() {
+            calculate();
+            findResistors();
+        };
+    </script>
+</body>
+</html>

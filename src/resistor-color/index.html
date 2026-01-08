@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resistor Color Code</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        .band-select { min-width: 100px; }
+        .band-select option { padding: 4px 8px; }
+    </style>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Resistor Color Code</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Convert between resistor color bands and resistance values.
+        Select colors or enter a value.
+    </p>
+
+    <!-- Band Type Selection -->
+    <div class="mb-6">
+        <label class="text-sm text-gray-600 mr-2">Resistor type:</label>
+        <select id="bandCount" onchange="updateBandCount()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+            <option value="4" selected>4-band</option>
+            <option value="5">5-band (precision)</option>
+        </select>
+    </div>
+
+    <!-- Visual Resistor -->
+    <div class="mb-6">
+        <svg id="resistorSvg" viewBox="0 0 200 60" class="w-full max-w-xs">
+            <!-- Leads -->
+            <line x1="0" y1="30" x2="40" y2="30" stroke="#888" stroke-width="2"/>
+            <line x1="160" y1="30" x2="200" y2="30" stroke="#888" stroke-width="2"/>
+            <!-- Resistor body -->
+            <rect x="40" y="10" width="120" height="40" rx="8" fill="#d4b896" stroke="#a08060" stroke-width="1"/>
+            <!-- Bands -->
+            <rect id="band1" x="52" y="10" width="8" height="40" fill="#000"/>
+            <rect id="band2" x="64" y="10" width="8" height="40" fill="#000"/>
+            <rect id="band3" x="76" y="10" width="8" height="40" fill="#000" class="hidden"/>
+            <rect id="bandMult" x="76" y="10" width="8" height="40" fill="#000"/>
+            <rect id="bandTol" x="130" y="10" width="8" height="40" fill="#d4af37"/>
+        </svg>
+    </div>
+
+    <!-- Color Selection -->
+    <div class="grid gap-4 md:grid-cols-2 mb-6">
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <h2 class="text-lg font-semibold text-gray-700 mb-3">Colors → Value</h2>
+            <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                    <label class="w-24 text-sm">Band 1:</label>
+                    <select id="color1" onchange="convertFromColors()" class="band-select px-2 py-1 border border-gray-300 rounded text-sm"></select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="w-24 text-sm">Band 2:</label>
+                    <select id="color2" onchange="convertFromColors()" class="band-select px-2 py-1 border border-gray-300 rounded text-sm"></select>
+                </div>
+                <div id="band3Row" class="flex items-center gap-2 hidden">
+                    <label class="w-24 text-sm">Band 3:</label>
+                    <select id="color3" onchange="convertFromColors()" class="band-select px-2 py-1 border border-gray-300 rounded text-sm"></select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="w-24 text-sm">Multiplier:</label>
+                    <select id="colorMult" onchange="convertFromColors()" class="band-select px-2 py-1 border border-gray-300 rounded text-sm"></select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="w-24 text-sm">Tolerance:</label>
+                    <select id="colorTol" onchange="convertFromColors()" class="band-select px-2 py-1 border border-gray-300 rounded text-sm"></select>
+                </div>
+            </div>
+            <div id="colorResult" class="mt-4 p-3 bg-white rounded border text-center">
+                <p class="text-2xl font-mono font-bold" id="resistanceDisplay">--</p>
+                <p class="text-sm text-gray-500" id="toleranceDisplay">--</p>
+            </div>
+        </div>
+
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <h2 class="text-lg font-semibold text-gray-700 mb-3">Value → Colors</h2>
+            <div class="flex items-center gap-2 mb-4">
+                <input type="number" id="valueInput" step="any" min="0" placeholder="10000" class="w-28 px-2 py-1 border border-gray-300 rounded text-sm" oninput="convertFromValue()">
+                <select id="valueUnit" class="px-2 py-1 border border-gray-300 rounded text-sm" onchange="convertFromValue()">
+                    <option value="1">Ω</option>
+                    <option value="1000" selected>kΩ</option>
+                    <option value="1000000">MΩ</option>
+                </select>
+            </div>
+            <div id="valueResult" class="text-sm space-y-1">
+                <p class="text-gray-400">Enter a resistance value</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reference Table -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Color Code Reference</h2>
+        <div class="overflow-x-auto">
+            <table class="text-sm w-full">
+                <thead>
+                    <tr class="border-b">
+                        <th class="text-left py-2 pr-4">Color</th>
+                        <th class="text-center py-2 px-2">Digit</th>
+                        <th class="text-center py-2 px-2">Multiplier</th>
+                        <th class="text-center py-2 px-2">Tolerance</th>
+                    </tr>
+                </thead>
+                <tbody id="referenceTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- E Series -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Standard Values (E Series)</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Resistors come in standard "E series" values. The number indicates how many values per decade (10× range).
+            Each series corresponds to a tolerance - tighter tolerance needs more values to cover all possible targets.
+        </p>
+
+        <div class="space-y-4">
+            <div>
+                <h3 class="font-medium text-gray-700">E12 (±10%) <span class="font-normal text-gray-500">- 12 values per decade</span></h3>
+                <p class="text-sm font-mono text-gray-600 mt-1">1.0, 1.2, 1.5, 1.8, 2.2, 2.7, 3.3, 3.9, 4.7, 5.6, 6.8, 8.2</p>
+            </div>
+
+            <div>
+                <h3 class="font-medium text-gray-700">E24 (±5%) <span class="font-normal text-gray-500">- 24 values per decade</span></h3>
+                <p class="text-sm font-mono text-gray-600 mt-1">1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1</p>
+            </div>
+
+            <div>
+                <h3 class="font-medium text-gray-700">E48 (±2%) <span class="font-normal text-gray-500">- 48 values per decade</span></h3>
+                <p class="text-sm text-gray-500 mt-1">Adds intermediate values: 1.05, 1.15, 1.27, 1.37, 1.47, 1.62, 1.74, 1.87, 2.05, ...</p>
+            </div>
+
+            <div>
+                <h3 class="font-medium text-gray-700">E96 (±1%) <span class="font-normal text-gray-500">- 96 values per decade</span></h3>
+                <p class="text-sm text-gray-500 mt-1">Fine-grained values for precision applications. Typically 5-band resistors.</p>
+            </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-white rounded border text-sm text-gray-600">
+            <strong>Example:</strong> In E24, after 4.7kΩ comes 5.1kΩ, then 5.6kΩ. You won't find a 5.0kΩ resistor -
+            use 5.1kΩ or combine values (4.7kΩ + 330Ω in series, or two 10kΩ in parallel).
+        </div>
+    </div>
+
+    <!-- Resistor Types -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">Resistor Types</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Different construction methods offer different trade-offs in precision, noise, temperature stability, and power handling.
+        </p>
+
+        <div class="space-y-4 text-sm">
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Carbon Film</h3>
+                <p class="text-gray-500 mt-1">Thin carbon layer on ceramic. Cheap, general purpose. ±5% tolerance typical.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Non-critical applications, pull-ups/pull-downs, LED current limiting, hobby projects.</p>
+                <p class="text-amber-600 mt-1"><strong>Avoid for:</strong> Audio signal paths (noisy), precision circuits.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Metal Film</h3>
+                <p class="text-gray-500 mt-1">Thin metal alloy layer. Low noise, good temperature stability. ±1% typical.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Audio circuits, precision voltage dividers, instrumentation, anywhere noise matters.</p>
+                <p class="text-gray-600 mt-1"><strong>Note:</strong> The go-to choice for most applications. Only slightly more expensive than carbon film.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Metal Oxide</h3>
+                <p class="text-gray-500 mt-1">Thicker metal oxide coating. Better power handling and surge resistance than metal film.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Power supplies, surge protection, high-temperature environments.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Wirewound</h3>
+                <p class="text-gray-500 mt-1">Resistive wire wound on ceramic core. Excellent power handling, very precise, but inductive.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> High-power applications (5W+), current sensing, precision references.</p>
+                <p class="text-amber-600 mt-1"><strong>Avoid for:</strong> High-frequency circuits (inductance causes problems above ~50kHz).</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Thick Film (SMD)</h3>
+                <p class="text-gray-500 mt-1">Printed resistive paste on ceramic substrate. Standard surface-mount type.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Production PCBs, space-constrained designs. Available in 0402, 0603, 0805, 1206 packages.</p>
+                <p class="text-gray-600 mt-1"><strong>Note:</strong> 0603 (1.6×0.8mm) is a good balance of size and hand-solderability.</p>
+            </div>
+
+            <div class="p-3 bg-white rounded border">
+                <h3 class="font-medium text-gray-700">Thin Film (SMD)</h3>
+                <p class="text-gray-500 mt-1">Sputtered metal layer on ceramic. Superior precision and temperature coefficient.</p>
+                <p class="text-gray-600 mt-1"><strong>Use for:</strong> Precision instrumentation, matched resistor networks, low-noise audio.</p>
+                <p class="text-gray-600 mt-1"><strong>Note:</strong> ±0.1% tolerance and 25ppm/°C tempco available. More expensive.</p>
+            </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-blue-50 rounded border border-blue-200 text-sm text-gray-700">
+            <strong>Rule of thumb:</strong> Use metal film for through-hole, thick film 0603 for SMD.
+            Only go fancier when you have a specific reason (precision, power, noise, temperature).
+        </div>
+    </div>
+
+    <script>
+        const COLORS = {
+            black:  { name: 'Black',  hex: '#000000', digit: 0, multiplier: 1, textColor: '#fff' },
+            brown:  { name: 'Brown',  hex: '#8B4513', digit: 1, multiplier: 10, tolerance: 1, textColor: '#fff' },
+            red:    { name: 'Red',    hex: '#FF0000', digit: 2, multiplier: 100, tolerance: 2, textColor: '#fff' },
+            orange: { name: 'Orange', hex: '#FFA500', digit: 3, multiplier: 1000, textColor: '#000' },
+            yellow: { name: 'Yellow', hex: '#FFFF00', digit: 4, multiplier: 10000, textColor: '#000' },
+            green:  { name: 'Green',  hex: '#008000', digit: 5, multiplier: 100000, tolerance: 0.5, textColor: '#fff' },
+            blue:   { name: 'Blue',   hex: '#0000FF', digit: 6, multiplier: 1000000, tolerance: 0.25, textColor: '#fff' },
+            violet: { name: 'Violet', hex: '#EE82EE', digit: 7, multiplier: 10000000, tolerance: 0.1, textColor: '#000' },
+            gray:   { name: 'Gray',   hex: '#808080', digit: 8, multiplier: 100000000, tolerance: 0.05, textColor: '#fff' },
+            white:  { name: 'White',  hex: '#FFFFFF', digit: 9, multiplier: 1000000000, textColor: '#000' },
+            gold:   { name: 'Gold',   hex: '#FFD700', multiplier: 0.1, tolerance: 5, textColor: '#000' },
+            silver: { name: 'Silver', hex: '#C0C0C0', multiplier: 0.01, tolerance: 10, textColor: '#000' },
+        };
+
+        const DIGIT_COLORS = ['black', 'brown', 'red', 'orange', 'yellow', 'green', 'blue', 'violet', 'gray', 'white'];
+        const MULT_COLORS = ['black', 'brown', 'red', 'orange', 'yellow', 'green', 'blue', 'violet', 'gray', 'white', 'gold', 'silver'];
+        const TOL_COLORS = ['brown', 'red', 'green', 'blue', 'violet', 'gray', 'gold', 'silver'];
+
+        function populateSelect(selectId, colorList, defaultValue) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '';
+            colorList.forEach(colorKey => {
+                const color = COLORS[colorKey];
+                const option = document.createElement('option');
+                option.value = colorKey;
+                option.textContent = color.name;
+                option.style.backgroundColor = color.hex;
+                option.style.color = color.textColor;
+                select.appendChild(option);
+            });
+            if (defaultValue) select.value = defaultValue;
+        }
+
+        function updateBandCount() {
+            const count = parseInt(document.getElementById('bandCount').value);
+            const band3Row = document.getElementById('band3Row');
+            const band3Rect = document.getElementById('band3');
+
+            if (count === 5) {
+                band3Row.classList.remove('hidden');
+                band3Rect.classList.remove('hidden');
+                // Adjust band positions for 5-band
+                document.getElementById('band1').setAttribute('x', '52');
+                document.getElementById('band2').setAttribute('x', '64');
+                document.getElementById('band3').setAttribute('x', '76');
+                document.getElementById('bandMult').setAttribute('x', '88');
+                document.getElementById('bandTol').setAttribute('x', '130');
+            } else {
+                band3Row.classList.add('hidden');
+                band3Rect.classList.add('hidden');
+                // Adjust band positions for 4-band
+                document.getElementById('band1').setAttribute('x', '52');
+                document.getElementById('band2').setAttribute('x', '64');
+                document.getElementById('bandMult').setAttribute('x', '76');
+                document.getElementById('bandTol').setAttribute('x', '130');
+            }
+            convertFromColors();
+        }
+
+        function convertFromColors() {
+            const count = parseInt(document.getElementById('bandCount').value);
+            const c1 = document.getElementById('color1').value;
+            const c2 = document.getElementById('color2').value;
+            const c3 = count === 5 ? document.getElementById('color3').value : null;
+            const cMult = document.getElementById('colorMult').value;
+            const cTol = document.getElementById('colorTol').value;
+
+            // Update visual bands
+            document.getElementById('band1').setAttribute('fill', COLORS[c1].hex);
+            document.getElementById('band2').setAttribute('fill', COLORS[c2].hex);
+            if (c3) document.getElementById('band3').setAttribute('fill', COLORS[c3].hex);
+            document.getElementById('bandMult').setAttribute('fill', COLORS[cMult].hex);
+            document.getElementById('bandTol').setAttribute('fill', COLORS[cTol].hex);
+
+            // Calculate value
+            let significand;
+            if (count === 5) {
+                significand = COLORS[c1].digit * 100 + COLORS[c2].digit * 10 + COLORS[c3].digit;
+            } else {
+                significand = COLORS[c1].digit * 10 + COLORS[c2].digit;
+            }
+            const resistance = significand * COLORS[cMult].multiplier;
+            const tolerance = COLORS[cTol].tolerance;
+
+            document.getElementById('resistanceDisplay').textContent = formatResistance(resistance);
+            document.getElementById('toleranceDisplay').textContent = `±${tolerance}%`;
+        }
+
+        function convertFromValue() {
+            const valueEl = document.getElementById('valueInput');
+            const unitEl = document.getElementById('valueUnit');
+            const resultEl = document.getElementById('valueResult');
+
+            const value = parseFloat(valueEl.value);
+            if (isNaN(value) || value <= 0) {
+                resultEl.innerHTML = '<p class="text-gray-400">Enter a resistance value</p>';
+                return;
+            }
+
+            const ohms = value * parseFloat(unitEl.value);
+            const count = parseInt(document.getElementById('bandCount').value);
+
+            // Find the color bands
+            const bands = findColorBands(ohms, count);
+
+            if (bands) {
+                let html = '<div class="space-y-1">';
+                html += `<p><span class="inline-block w-3 h-3 rounded mr-2" style="background:${COLORS[bands.b1].hex};border:1px solid #ccc"></span>Band 1: <strong>${COLORS[bands.b1].name}</strong></p>`;
+                html += `<p><span class="inline-block w-3 h-3 rounded mr-2" style="background:${COLORS[bands.b2].hex};border:1px solid #ccc"></span>Band 2: <strong>${COLORS[bands.b2].name}</strong></p>`;
+                if (bands.b3 !== undefined) {
+                    html += `<p><span class="inline-block w-3 h-3 rounded mr-2" style="background:${COLORS[bands.b3].hex};border:1px solid #ccc"></span>Band 3: <strong>${COLORS[bands.b3].name}</strong></p>`;
+                }
+                html += `<p><span class="inline-block w-3 h-3 rounded mr-2" style="background:${COLORS[bands.mult].hex};border:1px solid #ccc"></span>Multiplier: <strong>${COLORS[bands.mult].name}</strong></p>`;
+                html += '</div>';
+                resultEl.innerHTML = html;
+
+                // Update the color selectors to match
+                document.getElementById('color1').value = bands.b1;
+                document.getElementById('color2').value = bands.b2;
+                if (bands.b3 !== undefined) document.getElementById('color3').value = bands.b3;
+                document.getElementById('colorMult').value = bands.mult;
+                convertFromColors();
+            } else {
+                resultEl.innerHTML = '<p class="text-amber-600">Cannot represent this value with standard color bands</p>';
+            }
+        }
+
+        function findColorBands(ohms, bandCount) {
+            // Normalize to find significand and multiplier
+            let significand = ohms;
+            let multIndex = 0;
+
+            // Handle sub-ohm values
+            if (significand < 1) {
+                if (significand >= 0.1) {
+                    significand *= 10;
+                    multIndex = -1; // gold
+                } else if (significand >= 0.01) {
+                    significand *= 100;
+                    multIndex = -2; // silver
+                } else {
+                    return null;
+                }
+            } else {
+                while (significand >= (bandCount === 5 ? 1000 : 100) && multIndex < 9) {
+                    significand /= 10;
+                    multIndex++;
+                }
+            }
+
+            significand = Math.round(significand);
+
+            // Check if it fits
+            if (bandCount === 5) {
+                if (significand < 100 || significand > 999) return null;
+                const d1 = Math.floor(significand / 100);
+                const d2 = Math.floor((significand % 100) / 10);
+                const d3 = significand % 10;
+                return {
+                    b1: DIGIT_COLORS[d1],
+                    b2: DIGIT_COLORS[d2],
+                    b3: DIGIT_COLORS[d3],
+                    mult: multIndex === -1 ? 'gold' : multIndex === -2 ? 'silver' : DIGIT_COLORS[multIndex]
+                };
+            } else {
+                if (significand < 10 || significand > 99) return null;
+                const d1 = Math.floor(significand / 10);
+                const d2 = significand % 10;
+                return {
+                    b1: DIGIT_COLORS[d1],
+                    b2: DIGIT_COLORS[d2],
+                    mult: multIndex === -1 ? 'gold' : multIndex === -2 ? 'silver' : DIGIT_COLORS[multIndex]
+                };
+            }
+        }
+
+        function formatResistance(ohms) {
+            if (ohms >= 1000000) {
+                return (ohms / 1000000).toFixed(ohms % 1000000 === 0 ? 0 : 2) + ' MΩ';
+            } else if (ohms >= 1000) {
+                return (ohms / 1000).toFixed(ohms % 1000 === 0 ? 0 : 2) + ' kΩ';
+            } else if (ohms >= 1) {
+                return ohms.toFixed(ohms % 1 === 0 ? 0 : 2) + ' Ω';
+            } else {
+                return (ohms * 1000).toFixed(0) + ' mΩ';
+            }
+        }
+
+        function buildReferenceTable() {
+            const tbody = document.getElementById('referenceTable');
+            let html = '';
+
+            for (const [key, color] of Object.entries(COLORS)) {
+                html += `<tr class="border-b border-gray-200">`;
+                html += `<td class="py-2 pr-4"><span class="inline-block w-4 h-4 rounded mr-2 align-middle border border-gray-300" style="background:${color.hex}"></span>${color.name}</td>`;
+                html += `<td class="text-center py-2 px-2">${color.digit !== undefined ? color.digit : '-'}</td>`;
+                html += `<td class="text-center py-2 px-2">${color.multiplier !== undefined ? '×' + color.multiplier : '-'}</td>`;
+                html += `<td class="text-center py-2 px-2">${color.tolerance !== undefined ? '±' + color.tolerance + '%' : '-'}</td>`;
+                html += `</tr>`;
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        // Initialize
+        window.onload = function() {
+            populateSelect('color1', DIGIT_COLORS, 'brown');
+            populateSelect('color2', DIGIT_COLORS, 'black');
+            populateSelect('color3', DIGIT_COLORS, 'black');
+            populateSelect('colorMult', MULT_COLORS, 'orange');
+            populateSelect('colorTol', TOL_COLORS, 'gold');
+            buildReferenceTable();
+            convertFromColors();
+        };
+    </script>
+</body>
+</html>
