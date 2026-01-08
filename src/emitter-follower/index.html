@@ -89,6 +89,7 @@
     <div class="flex flex-wrap gap-2 mt-4">
         <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
         <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+        <button onclick="openInFalstad()" class="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm">Open in Falstad</button>
     </div>
 
     <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
@@ -225,7 +226,81 @@
     <script src="../common.js"></script>
     <script src="../schematic.js"></script>
     <script src="../graph.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <script>
+        let lastCalcValues = null;
+
+        function storeCalcValues(vals) {
+            lastCalcValues = vals;
+        }
+
+        function openInFalstad() {
+            if (!lastCalcValues) {
+                alert('Please calculate first');
+                return;
+            }
+            const v = lastCalcValues;
+
+            // Build schematic for Falstad export
+            const sch = new Schematic(500, 350);
+            sch.setFalstadOptions({ vMax: v.vcc * 2 });
+
+            // Components - emitter follower layout
+            // Vcc rail at top
+            sch.place('power', 'Vcc', 256, 48, { value: v.vcc });
+
+            // Bias resistors
+            sch.place('resistor-v', 'R1', 176, 96, { value: v.r1 });
+            sch.place('resistor-v', 'R2', 176, 192, { value: v.r2 });
+            sch.place('ground', 'GND1', 176, 240);
+
+            // NPN transistor - base at left, collector/emitter at right
+            // For Falstad: base at (x-15, y), collector at (x+25, y-16), emitter at (x+25, y+16)
+            sch.place('npn', 'Q1', 224, 144, { beta: v.beta });
+
+            // Emitter resistor
+            sch.place('resistor-v', 'Re', 249, 208, { value: v.re });
+            sch.place('ground', 'GND2', 249, 256);
+
+            // Input AC source and coupling cap
+            sch.place('ac-source-h', 'Vin', 48, 144, { value: v.vinPeak, freq: 1000 });
+            sch.place('capacitor-h', 'Cin', 112, 144, { value: v.cin });
+
+            // Output coupling cap and load
+            sch.place('capacitor-h', 'Cout', 320, 160, { value: v.cout });
+            sch.place('resistor-v', 'Rload', 368, 208, { value: v.rload });
+            sch.place('ground', 'GND3', 368, 256);
+
+            // Output probe
+            sch.place('probe', 'Out', 368, 160);
+
+            // Wiring
+            // Vcc to R1 and to collector
+            sch.wire('Vcc.a', 'R1.a');
+            sch.wire('Vcc.a', { x: 249, y: 48 });
+            sch.wire({ x: 249, y: 48 }, 'Q1.collector');
+
+            // Bias network
+            sch.wire('R1.b', 'R2.a');
+            sch.wire('R2.b', 'GND1.a');
+
+            // Base connection
+            sch.wire('Vin.b', 'Cin.a');
+            sch.wire('Cin.b', 'R1.b');
+            sch.wire('R1.b', 'Q1.base');
+
+            // Emitter to Re
+            sch.wire('Q1.emitter', 'Re.a');
+            sch.wire('Re.b', 'GND2.a');
+
+            // Output path
+            sch.wire('Q1.emitter', 'Cout.a');
+            sch.wire('Cout.b', 'Rload.a');
+            sch.wire('Rload.b', 'GND3.a');
+
+            sch.openInFalstad();
+        }
+
         function updateTransistorFields() {
             const preset = document.getElementById('transistorPreset').value;
             const isCustom = preset === 'custom';
@@ -244,8 +319,8 @@
 
             // Populate values from preset
             if (preset === 'ideal') {
-                betaEl.value = '∞';
-                ftEl.value = '∞';
+                betaEl.value = '100';
+                ftEl.value = '300';
             } else if (preset !== 'custom' && typeof BJT_PRESETS !== 'undefined' && BJT_PRESETS[preset]) {
                 const p = BJT_PRESETS[preset];
                 betaEl.value = p.beta;
@@ -257,7 +332,7 @@
             const preset = document.getElementById('transistorPreset').value;
 
             if (preset === 'ideal') {
-                return { beta: 100000, ft: 1e12, vceSat: 0, isIdeal: true };
+                return { beta: 100, ft: 300e6, vceSat: 0, isIdeal: true };
             }
 
             if (preset !== 'custom' && BJT_PRESETS[preset]) {
@@ -658,6 +733,21 @@
                 beta: beta,
                 fLow: fLow,
                 fT: fT
+            });
+
+            // Store values for Falstad export
+            storeCalcValues({
+                vcc: vcc,
+                vb: vb,
+                ve: ve,
+                vinPeak: vin,
+                r1: r1Rounded,
+                r2: r2Rounded,
+                re: reRounded,
+                cin: cinRounded,
+                cout: coutRounded,
+                rload: rload,
+                beta: beta
             });
         }
 

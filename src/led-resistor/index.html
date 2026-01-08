@@ -101,6 +101,8 @@
                 <p>Power dissipation: <span id="power" class="font-mono">3.0 mW</span></p>
                 <p>Resistor rating needed: <span id="rating" class="font-mono">1/8 W is fine</span></p>
             </div>
+
+            <button onclick="openInFalstad()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm">Open in Falstad</button>
         </div>
     </div>
 
@@ -143,7 +145,40 @@
     </div>
 
     <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <script>
+        function openInFalstad() {
+            const vs = parseFloat(document.getElementById('vs').value) || 0;
+            const vf = parseFloat(document.getElementById('vf').value) || 0;
+            const current = (parseFloat(document.getElementById('current').value) || 0) / 1000;
+
+            if (vs <= vf || current <= 0) {
+                alert('Please enter valid values');
+                return;
+            }
+
+            const r = (vs - vf) / current;
+            const re24 = typeof roundToE24 === 'function' ? roundToE24(r) : r;
+
+            // Build schematic for Falstad export
+            const sch = new Schematic(200, 280);
+            sch.setFalstadOptions({ vMax: vs * 2 });
+
+            // Components (positioned vertically)
+            sch.place('power', 'Vs', 100, 30, { value: vs });
+            sch.place('resistor-v', 'R', 100, 80, { value: re24 });
+            sch.place('diode-v', 'LED', 100, 145, { vf: vf, led: true });
+            sch.place('ground', 'GND', 100, 180);
+
+            // Wiring
+            sch.wire('Vs.a', 'R.a');
+            sch.wire('R.b', 'LED.a');
+            sch.wire('LED.k', 'GND.a');
+
+            sch.openInFalstad();
+        }
+
         function calculate() {
             const vs = parseFloat(document.getElementById('vs').value) || 0;
             const vf = parseFloat(document.getElementById('vf').value) || 0;

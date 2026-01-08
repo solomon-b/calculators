@@ -95,6 +95,8 @@
                 <p>Current: <span id="current" class="font-mono">0.25 mA</span></p>
                 <p>Output impedance: <span id="zout" class="font-mono">5.00 kΩ</span></p>
             </div>
+
+            <button onclick="openInFalstad()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm">Open in Falstad</button>
         </div>
     </div>
 
@@ -140,7 +142,38 @@
     </div>
 
     <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <script>
+        function openInFalstad() {
+            const vin = parseFloat(document.getElementById('vin').value) || 0;
+            const r1 = (parseFloat(document.getElementById('r1').value) || 0) * parseFloat(document.getElementById('r1Unit').value);
+            const r2 = (parseFloat(document.getElementById('r2').value) || 0) * parseFloat(document.getElementById('r2Unit').value);
+
+            if (r1 + r2 === 0 || vin === 0) {
+                alert('Please enter valid values');
+                return;
+            }
+
+            // Build schematic for Falstad export
+            const sch = new Schematic(200, 250);
+            sch.setFalstadOptions({ vMax: vin * 2 });
+
+            // Components (positioned vertically)
+            sch.place('power', 'Vcc', 100, 30, { value: vin });
+            sch.place('resistor-v', 'R1', 100, 80, { value: r1 });
+            sch.place('resistor-v', 'R2', 100, 160, { value: r2 });
+            sch.place('ground', 'GND', 100, 210);
+            sch.place('probe', 'Vout', 100, 105); // At R1.b junction
+
+            // Wiring
+            sch.wire('Vcc.a', 'R1.a');
+            sch.wire('R1.b', 'R2.a');
+            sch.wire('R2.b', 'GND.a');
+
+            sch.openInFalstad();
+        }
+
         function calculate() {
             const vin = parseFloat(document.getElementById('vin').value) || 0;
             const r1 = (parseFloat(document.getElementById('r1').value) || 0) * parseFloat(document.getElementById('r1Unit').value);

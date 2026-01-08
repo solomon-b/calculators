@@ -88,6 +88,7 @@
     <div class="flex flex-wrap gap-2 mt-4">
         <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
         <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+        <button onclick="openInFalstad()" class="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm">Open in Falstad</button>
     </div>
 
     <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
@@ -114,6 +115,104 @@
     <script src="../common.js"></script>
     <script src="../schematic.js"></script>
     <script src="../graph.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+    <script>
+        let lastCalcValues = null;
+
+        function storeCalcValues(vals) {
+            lastCalcValues = vals;
+        }
+
+        function openInFalstad() {
+            if (!lastCalcValues) {
+                alert('Please calculate first');
+                return;
+            }
+            const v = lastCalcValues;
+            const stage = v.stages[0]; // Export first stage only
+            const isLowpass = stage.type === 'lowpass';
+
+            // Build schematic for Falstad export
+            const sch = new Schematic(450, 300);
+            sch.setFalstadOptions({ vMax: v.vcc * 2 });
+
+            // AC input source
+            sch.place('ac-source-h', 'Vin', 32, 128, { value: 1, freq: stage.fcActual });
+
+            if (isLowpass) {
+                // Lowpass: R1 -> R2 -> opamp+, C3 feedback, C4 to ground
+                sch.place('resistor-h', 'Z1', 96, 128, { value: stage.R });
+                sch.place('resistor-h', 'Z2', 176, 128, { value: stage.R });
+                sch.place('capacitor-h', 'Z3', 200, 64, { value: stage.C });
+                sch.place('capacitor-v', 'Z4', 224, 176, { value: stage.C });
+            } else {
+                // Highpass: C1 -> C2 -> opamp+, R3 feedback, R4 to ground
+                sch.place('capacitor-h', 'Z1', 96, 128, { value: stage.C });
+                sch.place('capacitor-h', 'Z2', 176, 128, { value: stage.C });
+                sch.place('resistor-h', 'Z3', 200, 64, { value: stage.R });
+                sch.place('resistor-v', 'Z4', 224, 176, { value: stage.R });
+            }
+
+            // Ground for Z4
+            sch.place('ground', 'GND1', 224, 224);
+
+            // Op-amp with flip (+ on top)
+            sch.place('opamp', 'U1', 288, 108, { vcc: v.vcc, flip: true });
+
+            // Gain network: Ra to ground, Rb feedback (if K > 1)
+            sch.place('resistor-v', 'Ra', 248, 200, { value: stage.Ra });
+            sch.place('ground', 'GND2', 248, 248);
+
+            if (stage.Rb > 0) {
+                sch.place('resistor-h', 'Rb', 320, 176, { value: stage.Rb });
+            }
+
+            // Output probe
+            sch.place('probe', 'Out', 368, 108);
+
+            // Wiring
+            // Input to Z1
+            sch.wire('Vin.b', 'Z1.a');
+
+            // Z1 -> Vx node -> Z2
+            sch.wire('Z1.b', { x: 144, y: 128 });
+            sch.wire({ x: 144, y: 128 }, 'Z2.a');
+
+            // Z2 -> V+ node
+            sch.wire('Z2.b', { x: 224, y: 128 });
+            sch.wire({ x: 224, y: 128 }, 'U1.plus');
+
+            // Z4 shunt to ground
+            sch.wire({ x: 224, y: 128 }, 'Z4.a');
+            sch.wire('Z4.b', 'GND1.a');
+
+            // Z3 feedback: Vx up to Z3, Z3 across to output
+            sch.wire({ x: 144, y: 128 }, { x: 144, y: 64 });
+            sch.wire({ x: 144, y: 64 }, 'Z3.a');
+            sch.wire('Z3.b', { x: 352, y: 64 });
+            sch.wire({ x: 352, y: 64 }, 'U1.out');
+
+            // Gain network wiring
+            sch.wire('U1.minus', { x: 248, y: 128 });
+            sch.wire({ x: 248, y: 128 }, { x: 248, y: 164 });
+            sch.wire({ x: 248, y: 164 }, 'Ra.a');
+            sch.wire('Ra.b', 'GND2.a');
+
+            if (stage.Rb > 0) {
+                sch.wire({ x: 248, y: 164 }, 'Rb.a');
+                sch.wire('Rb.b', { x: 352, y: 176 });
+                sch.wire({ x: 352, y: 108 }, { x: 352, y: 176 });
+            } else {
+                sch.wire({ x: 248, y: 164 }, { x: 352, y: 164 });
+                sch.wire({ x: 352, y: 108 }, { x: 352, y: 164 });
+            }
+
+            // Output
+            sch.wire('U1.out', 'Out.a');
+
+            sch.openInFalstad();
+        }
+    </script>
     <script>
         // Draw a single stage into an existing schematic at x offset
         function drawStageAt(sch, stage, vcc, xOff, stageIdx, isFirst, isLast) {
@@ -417,6 +516,12 @@
             // Draw frequency response
             const responseDiv = document.getElementById('response');
             responseDiv.innerHTML = drawFrequencyResponse(stages, responseType, rippleDb, fc);
+
+            // Store values for Falstad export
+            storeCalcValues({
+                vcc: vcc,
+                stages: stages
+            });
         }
 
         function resetDefaults() {

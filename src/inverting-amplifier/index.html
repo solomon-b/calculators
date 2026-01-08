@@ -88,6 +88,7 @@
     <div class="flex flex-wrap gap-2 mt-4">
         <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
         <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+        <button onclick="openInFalstad()" class="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm">Open in Falstad</button>
     </div>
 
     <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
@@ -144,7 +145,67 @@
     <script src="../common.js"></script>
     <script src="../schematic.js"></script>
     <script src="../graph.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
     <script>
+        let lastCalcValues = null;
+
+        function storeCalcValues(vals) {
+            lastCalcValues = vals;
+        }
+
+        function openInFalstad() {
+            if (!lastCalcValues) {
+                alert('Please calculate first');
+                return;
+            }
+            const v = lastCalcValues;
+
+            // Build schematic for Falstad export
+            const sch = new Schematic(400, 250);
+            sch.setFalstadOptions({ vMax: v.vcc * 2 });
+
+            // Op-amp with minus on top
+            sch.place('opamp', 'U1', 224, 128, { vcc: v.vcc });
+
+            // Input resistor (Rin)
+            sch.place('resistor-h', 'Rin', 128, 108, { value: v.rin });
+
+            // Feedback resistor (Rf)
+            sch.place('resistor-h', 'Rf', 224, 64, { value: v.rf });
+
+            // AC input source
+            sch.place('ac-source-h', 'Vin', 48, 108, { value: v.vinPeak, freq: 1000 });
+
+            // Ground for non-inverting input
+            sch.place('ground', 'GND', 184, 172);
+
+            // Output probe
+            sch.place('probe', 'Out', 312, 128);
+
+            // Wiring
+            // Input to Rin
+            sch.wire('Vin.b', 'Rin.a');
+
+            // Rin to inverting input
+            sch.wire('Rin.b', 'U1.minus');
+
+            // Inverting input up to feedback
+            sch.wire('Rin.b', { x: 153, y: 64 });
+            sch.wire({ x: 153, y: 64 }, 'Rf.a');
+
+            // Feedback to output
+            sch.wire('Rf.b', { x: 295, y: 64 });
+            sch.wire({ x: 295, y: 64 }, 'U1.out');
+
+            // Non-inverting input to ground
+            sch.wire('U1.plus', 'GND.a');
+
+            // Output
+            sch.wire('U1.out', 'Out.a');
+
+            sch.openInFalstad();
+        }
+
         function updateOpampFields() {
             const preset = document.getElementById('opampPreset').value;
             const isCustom = preset === 'custom';
@@ -506,6 +567,14 @@
             document.getElementById('waveforms').innerHTML = drawWaveforms(vin, voutPeak, maxSwing, signalFreq, opamp, actualGain);
 
             document.getElementById('note').textContent = notes.join(' ');
+
+            // Store values for Falstad export
+            storeCalcValues({
+                vcc: vcc,
+                vinPeak: vin,
+                rin: rinRounded,
+                rf: rfRounded
+            });
         }
 
         function resetDefaults() {
