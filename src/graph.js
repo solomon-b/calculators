@@ -453,6 +453,185 @@ class TransferGraph {
 }
 
 
+// ============ Load Line Graph ============
+// For transistor DC load line and Q-point visualization
+
+class LoadLineGraph {
+    constructor(options = {}) {
+        this.width = options.width || 450;
+        this.height = options.height || 280;
+        this.margin = options.margin || { top: 20, right: 30, bottom: 50, left: 60 };
+        this.plotW = this.width - this.margin.left - this.margin.right;
+        this.plotH = this.height - this.margin.top - this.margin.bottom;
+
+        // Axis ranges (auto-calculated if not provided)
+        this.xMax = options.xMax || null;
+        this.yMax = options.yMax || null;
+
+        this.xLabel = options.xLabel || 'Vce (V)';
+        this.yLabel = options.yLabel || 'Ic (mA)';
+
+        this.lines = [];
+        this.qPoints = [];
+        this.regions = [];
+        this.vLines = [];
+        this.annotations = [];
+    }
+
+    // Add a load line from (x1, y1) to (x2, y2)
+    addLine(x1, y1, x2, y2, options = {}) {
+        this.lines.push({
+            x1, y1, x2, y2,
+            color: options.color || '#2266cc',
+            width: options.width || 2,
+            dashed: options.dashed || false,
+            label: options.label || null
+        });
+        return this;
+    }
+
+    // Add Q-point marker
+    addQPoint(x, y, options = {}) {
+        this.qPoints.push({
+            x, y,
+            color: options.color || '#c33',
+            label: options.label || 'Q-point',
+            detail: options.detail || `(${x.toFixed(1)}V, ${y.toFixed(1)}mA)`
+        });
+        return this;
+    }
+
+    // Add shaded region (e.g., saturation)
+    addRegion(xMin, xMax, options = {}) {
+        this.regions.push({
+            xMin, xMax,
+            color: options.color || '#fee',
+            label: options.label || null
+        });
+        return this;
+    }
+
+    // Add vertical reference line
+    addVLine(x, options = {}) {
+        this.vLines.push({
+            x,
+            color: options.color || '#3a3',
+            dashed: options.dashed !== false,
+            label: options.label || null
+        });
+        return this;
+    }
+
+    // Add text annotation
+    addAnnotation(x, y, text, options = {}) {
+        this.annotations.push({
+            x, y, text,
+            color: options.color || '#3a3',
+            anchor: options.anchor || 'middle'
+        });
+        return this;
+    }
+
+    toSVG() {
+        // Auto-calculate ranges if not provided
+        let xMax = this.xMax, yMax = this.yMax;
+        if (!xMax || !yMax) {
+            for (const line of this.lines) {
+                xMax = Math.max(xMax || 0, line.x1, line.x2);
+                yMax = Math.max(yMax || 0, line.y1, line.y2);
+            }
+            for (const q of this.qPoints) {
+                xMax = Math.max(xMax || 0, q.x);
+                yMax = Math.max(yMax || 0, q.y);
+            }
+            xMax *= 1.1;
+            yMax *= 1.1;
+        }
+
+        const xScale = (v) => this.margin.left + (v / xMax) * this.plotW;
+        const yScale = (v) => this.margin.top + this.plotH - (v / yMax) * this.plotH;
+
+        let svg = `<svg viewBox="0 0 ${this.width} ${this.height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${this.width}px; height: auto; font-family: monospace; font-size: 11px;">`;
+
+        // Background
+        svg += `<rect x="${this.margin.left}" y="${this.margin.top}" width="${this.plotW}" height="${this.plotH}" fill="#fafafa" stroke="#ccc"/>`;
+
+        // Shaded regions
+        for (const region of this.regions) {
+            const x1 = xScale(region.xMin);
+            const x2 = xScale(Math.min(region.xMax, xMax));
+            svg += `<rect x="${x1}" y="${this.margin.top}" width="${x2 - x1}" height="${this.plotH}" fill="${region.color}" opacity="0.5"/>`;
+            if (region.label) {
+                svg += `<text x="${(x1 + x2) / 2}" y="${this.margin.top + 15}" text-anchor="middle" fill="#c66" font-size="9">${region.label}</text>`;
+            }
+        }
+
+        // Grid
+        const xStep = this._niceStep(xMax, 5);
+        for (let v = 0; v <= xMax; v += xStep) {
+            const x = xScale(v);
+            svg += `<line x1="${x}" y1="${this.margin.top}" x2="${x}" y2="${this.margin.top + this.plotH}" stroke="#ddd"/>`;
+            svg += `<text x="${x}" y="${this.height - 25}" text-anchor="middle">${v.toFixed(0)}</text>`;
+        }
+
+        const yStep = this._niceStep(yMax, 5);
+        for (let i = 0; i <= yMax; i += yStep) {
+            const y = yScale(i);
+            svg += `<line x1="${this.margin.left}" y1="${y}" x2="${this.margin.left + this.plotW}" y2="${y}" stroke="#ddd"/>`;
+            svg += `<text x="${this.margin.left - 5}" y="${y + 4}" text-anchor="end">${i.toFixed(1)}</text>`;
+        }
+
+        // Load lines
+        for (const line of this.lines) {
+            const dash = line.dashed ? ' stroke-dasharray="4,2"' : '';
+            svg += `<line x1="${xScale(line.x1)}" y1="${yScale(line.y1)}" x2="${xScale(line.x2)}" y2="${yScale(line.y2)}" stroke="${line.color}" stroke-width="${line.width}"${dash}/>`;
+            if (line.label) {
+                const midX = (line.x1 + line.x2) / 2;
+                const midY = (line.y1 + line.y2) / 2;
+                svg += `<text x="${xScale(midX * 0.6)}" y="${yScale(midY * 0.4) - 5}" fill="${line.color}" font-size="10">${line.label}</text>`;
+            }
+        }
+
+        // Q-points
+        for (const q of this.qPoints) {
+            const qX = xScale(q.x);
+            const qY = yScale(q.y);
+            svg += `<circle cx="${qX}" cy="${qY}" r="6" fill="${q.color}" stroke="#fff" stroke-width="2"/>`;
+            svg += `<text x="${qX + 10}" y="${qY - 10}" fill="${q.color}" font-weight="bold">${q.label}</text>`;
+            svg += `<text x="${qX + 10}" y="${qY + 5}" fill="${q.color}" font-size="10">${q.detail}</text>`;
+        }
+
+        // Vertical reference lines
+        for (const line of this.vLines) {
+            const x = xScale(line.x);
+            const dash = line.dashed ? ' stroke-dasharray="4,2"' : '';
+            svg += `<line x1="${x}" y1="${this.margin.top}" x2="${x}" y2="${this.margin.top + this.plotH}" stroke="${line.color}"${dash}/>`;
+        }
+
+        // Annotations
+        for (const ann of this.annotations) {
+            svg += `<text x="${xScale(ann.x)}" y="${yScale(ann.y)}" text-anchor="${ann.anchor}" fill="${ann.color}" font-size="10">${ann.text}</text>`;
+        }
+
+        // Axis labels
+        svg += `<text x="${this.width / 2}" y="${this.height - 5}" text-anchor="middle">${this.xLabel}</text>`;
+        svg += `<text x="15" y="${this.height / 2}" text-anchor="middle" transform="rotate(-90, 15, ${this.height / 2})">${this.yLabel}</text>`;
+
+        svg += '</svg>';
+        return svg;
+    }
+
+    _niceStep(range, targetSteps) {
+        const rough = range / targetSteps;
+        const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+        const norm = rough / mag;
+        if (norm < 2) return 1 * mag;
+        if (norm < 5) return 2 * mag;
+        return 5 * mag;
+    }
+}
+
+
 // ============ Bar Graph ============
 // For harmonic spectrum display
 

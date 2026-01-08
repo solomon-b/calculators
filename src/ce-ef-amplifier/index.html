@@ -376,36 +376,13 @@
         function drawWaveforms(params) {
             const { vinPeak, voutPeak, maxSwing } = params;
 
-            const width = 500;
-            const height = 200;
-            const margin = { top: 30, right: 20, bottom: 30, left: 50 };
-            const plotW = width - margin.left - margin.right;
-            const plotH = height - margin.top - margin.bottom;
-
             const clipLevel = maxSwing / 2;
             const isClipping = voutPeak > clipLevel;
 
-            const maxV = Math.max(vinPeak, isClipping ? clipLevel : voutPeak) * 1.05;
             const cycles = 2;
             const numPoints = 200;
-
-            const xScale = (t) => margin.left + (t / cycles) * plotW;
-            const yScale = (v) => margin.top + plotH / 2 - (v / maxV) * (plotH / 2);
-
-            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
-
-            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
-            svg += `<line x1="${margin.left}" y1="${yScale(0)}" x2="${margin.left + plotW}" y2="${yScale(0)}" stroke="#ccc" stroke-width="1"/>`;
-
-            if (isClipping) {
-                svg += `<line x1="${margin.left}" y1="${yScale(clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
-                svg += `<line x1="${margin.left}" y1="${yScale(-clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(-clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
-                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
-                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(-clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
-            }
-
-            let inputPath = '';
-            let outputPath = '';
+            const inputPts = [];
+            const outputPts = [];
 
             for (let i = 0; i <= numPoints; i++) {
                 const t = (i / numPoints) * cycles;
@@ -418,37 +395,24 @@
                     vout = Math.max(-clipLevel, Math.min(clipLevel, vout));
                 }
 
-                const x = xScale(t);
-                const yIn = yScale(vin);
-                const yOut = yScale(vout);
-
-                if (i === 0) {
-                    inputPath = `M ${x} ${yIn}`;
-                    outputPath = `M ${x} ${yOut}`;
-                } else {
-                    inputPath += ` L ${x} ${yIn}`;
-                    outputPath += ` L ${x} ${yOut}`;
-                }
+                inputPts.push({ x: t, y: vin });
+                outputPts.push({ x: t, y: vout });
             }
 
-            svg += `<path d="${inputPath}" fill="none" stroke="#88f" stroke-width="2"/>`;
-            svg += `<path d="${outputPath}" fill="none" stroke="#c33" stroke-width="2"/>`;
+            const displayedVout = isClipping ? clipLevel : voutPeak;
+            let outLabel = `Output (${(displayedVout * 1000).toFixed(0)}mV)`;
+            if (isClipping) outLabel += ' CLIPPED';
 
-            svg += `<text x="${margin.left - 5}" y="${yScale(maxV * 0.8) + 4}" text-anchor="end" font-size="10">+</text>`;
-            svg += `<text x="${margin.left - 5}" y="${yScale(-maxV * 0.8) + 4}" text-anchor="end" font-size="10">-</text>`;
-            svg += `<text x="${margin.left - 5}" y="${yScale(0) + 4}" text-anchor="end" font-size="10">0</text>`;
+            const graph = new WaveformGraph({ xLabel: '180° phase inversion (CE inverts, EF doesn\'t)' });
+            graph.addCurve(inputPts, { color: '#88f', label: `Input (${(vinPeak * 1000).toFixed(0)}mV)` });
+            graph.addCurve(outputPts, { color: '#c33', label: outLabel });
 
-            svg += `<line x1="${margin.left + 10}" y1="${margin.top - 15}" x2="${margin.left + 30}" y2="${margin.top - 15}" stroke="#88f" stroke-width="2"/>`;
-            svg += `<text x="${margin.left + 35}" y="${margin.top - 11}" font-size="10">Input (${(vinPeak * 1000).toFixed(0)}mV peak)</text>`;
+            if (isClipping) {
+                graph.addHLine(clipLevel, { color: '#c66', label: 'clip' });
+                graph.addHLine(-clipLevel, { color: '#c66' });
+            }
 
-            svg += `<line x1="${margin.left + 180}" y1="${margin.top - 15}" x2="${margin.left + 200}" y2="${margin.top - 15}" stroke="#c33" stroke-width="2"/>`;
-            const actualOut = isClipping ? clipLevel : voutPeak;
-            svg += `<text x="${margin.left + 205}" y="${margin.top - 11}" font-size="10">Output (${(actualOut * 1000).toFixed(0)}mV peak${isClipping ? ', clipped' : ''})</text>`;
-
-            svg += `<text x="${width / 2}" y="${height - 5}" text-anchor="middle" fill="#666" font-size="10">180° phase inversion (CE inverts, EF doesn't)</text>`;
-
-            svg += '</svg>';
-            return svg;
+            return graph.toSVG();
         }
 
         function drawFrequencyResponse(params) {

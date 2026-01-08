@@ -192,6 +192,7 @@
 
     <script src="../common.js"></script>
     <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
     <script>
         function drawSchematic(vals) {
             const sch = new Schematic(400, 380);
@@ -274,36 +275,13 @@
         function drawWaveforms(params) {
             const { vinPeak, voutPeak, maxSwing } = params;
 
-            const width = 500;
-            const height = 200;
-            const margin = { top: 30, right: 20, bottom: 30, left: 50 };
-            const plotW = width - margin.left - margin.right;
-            const plotH = height - margin.top - margin.bottom;
-
             const clipLevel = maxSwing / 2;
             const isClipping = voutPeak > clipLevel;
 
-            const maxV = Math.max(vinPeak, isClipping ? clipLevel : voutPeak) * 1.05;
             const cycles = 2;
             const numPoints = 200;
-
-            const xScale = (t) => margin.left + (t / cycles) * plotW;
-            const yScale = (v) => margin.top + plotH / 2 - (v / maxV) * (plotH / 2);
-
-            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
-
-            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
-            svg += `<line x1="${margin.left}" y1="${yScale(0)}" x2="${margin.left + plotW}" y2="${yScale(0)}" stroke="#ccc" stroke-width="1"/>`;
-
-            if (isClipping) {
-                svg += `<line x1="${margin.left}" y1="${yScale(clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
-                svg += `<line x1="${margin.left}" y1="${yScale(-clipLevel)}" x2="${margin.left + plotW}" y2="${yScale(-clipLevel)}" stroke="#c66" stroke-dasharray="4,2"/>`;
-                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
-                svg += `<text x="${margin.left + plotW + 5}" y="${yScale(-clipLevel) + 4}" fill="#c66" font-size="9">clip</text>`;
-            }
-
-            let inputPath = '';
-            let outputPath = '';
+            const inputPts = [];
+            const outputPts = [];
 
             for (let i = 0; i <= numPoints; i++) {
                 const t = (i / numPoints) * cycles;
@@ -315,47 +293,29 @@
                     vout = Math.max(-clipLevel, Math.min(clipLevel, vout));
                 }
 
-                const x = xScale(t);
-                const yIn = yScale(vin);
-                const yOut = yScale(vout);
-
-                if (i === 0) {
-                    inputPath = `M ${x} ${yIn}`;
-                    outputPath = `M ${x} ${yOut}`;
-                } else {
-                    inputPath += ` L ${x} ${yIn}`;
-                    outputPath += ` L ${x} ${yOut}`;
-                }
+                inputPts.push({ x: t, y: vin });
+                outputPts.push({ x: t, y: vout });
             }
 
-            svg += `<path d="${inputPath}" fill="none" stroke="#88f" stroke-width="2"/>`;
-            svg += `<path d="${outputPath}" fill="none" stroke="#3a3" stroke-width="2"/>`;
+            const displayedVout = isClipping ? clipLevel : voutPeak;
+            let outLabel = `Output (${(displayedVout * 1000).toFixed(0)}mV)`;
+            if (isClipping) outLabel += ' CLIPPED';
 
-            svg += `<text x="${margin.left - 5}" y="${yScale(maxV * 0.8) + 4}" text-anchor="end" font-size="10">+</text>`;
-            svg += `<text x="${margin.left - 5}" y="${yScale(-maxV * 0.8) + 4}" text-anchor="end" font-size="10">−</text>`;
-            svg += `<text x="${margin.left - 5}" y="${yScale(0) + 4}" text-anchor="end" font-size="10">0</text>`;
+            const graph = new WaveformGraph({ xLabel: '0° phase (output follows input)' });
+            graph.addCurve(inputPts, { color: '#88f', label: `Input (${(vinPeak * 1000).toFixed(0)}mV)` });
+            graph.addCurve(outputPts, { color: '#3a3', label: outLabel });
 
-            svg += `<line x1="${margin.left + 10}" y1="${margin.top - 15}" x2="${margin.left + 30}" y2="${margin.top - 15}" stroke="#88f" stroke-width="2"/>`;
-            svg += `<text x="${margin.left + 35}" y="${margin.top - 11}" font-size="10">Input (${(vinPeak * 1000).toFixed(0)}mV peak)</text>`;
+            if (isClipping) {
+                graph.addHLine(clipLevel, { color: '#c66', label: 'clip' });
+                graph.addHLine(-clipLevel, { color: '#c66' });
+            }
 
-            svg += `<line x1="${margin.left + 180}" y1="${margin.top - 15}" x2="${margin.left + 200}" y2="${margin.top - 15}" stroke="#3a3" stroke-width="2"/>`;
-            svg += `<text x="${margin.left + 205}" y="${margin.top - 11}" font-size="10">Output (${(Math.min(voutPeak, clipLevel) * 1000).toFixed(0)}mV peak${isClipping ? ', clipped' : ''})</text>`;
-
-            svg += `<text x="${width / 2}" y="${height - 5}" text-anchor="middle" fill="#666" font-size="10">0° phase (output follows input)</text>`;
-
-            svg += '</svg>';
-            return svg;
+            return graph.toSVG();
         }
 
         // Draw DC load line for emitter follower
         function drawLoadLine(params) {
             const { vcc, re, ie, ve } = params;
-
-            const width = 450;
-            const height = 280;
-            const margin = { top: 20, right: 30, bottom: 50, left: 60 };
-            const plotW = width - margin.left - margin.right;
-            const plotH = height - margin.top - margin.bottom;
 
             // For emitter follower: Vce = Vcc - Ve = Vcc - Ie*Re
             // Load line: Ie from 0 to Vcc/Re
@@ -365,60 +325,28 @@
             // Current operating point
             const vce = vcc - ve;
 
-            const axisVceMax = vceMax * 1.1;
-            const axisIeMax = ieSat * 1.1;
-
-            const xScale = (v) => margin.left + (v / axisVceMax) * plotW;
-            const yScale = (i) => margin.top + plotH - (i / axisIeMax) * plotH;
-
-            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
-
-            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
-
-            // Grid
-            const vceStep = Math.ceil(axisVceMax / 5);
-            for (let v = 0; v <= axisVceMax; v += vceStep) {
-                const x = xScale(v);
-                svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${margin.top + plotH}" stroke="#ddd"/>`;
-                svg += `<text x="${x}" y="${height - 25}" text-anchor="middle">${v.toFixed(0)}</text>`;
-            }
-            const ieStep = Math.ceil(axisIeMax * 10) / 50;
-            for (let i = 0; i <= axisIeMax; i += ieStep) {
-                const y = yScale(i);
-                svg += `<line x1="${margin.left}" y1="${y}" x2="${margin.left + plotW}" y2="${y}" stroke="#ddd"/>`;
-                svg += `<text x="${margin.left - 5}" y="${y + 4}" text-anchor="end">${i.toFixed(1)}</text>`;
-            }
-
-            svg += `<text x="${width / 2}" y="${height - 5}" text-anchor="middle">Vce (V)</text>`;
-            svg += `<text x="15" y="${height / 2}" text-anchor="middle" transform="rotate(-90, 15, ${height / 2})">Ie (mA)</text>`;
-
-            // Saturation region
-            const vcesat = 0.3;
-            svg += `<rect x="${margin.left}" y="${margin.top}" width="${xScale(vcesat) - margin.left}" height="${plotH}" fill="#fee" opacity="0.5"/>`;
-            svg += `<text x="${xScale(vcesat/2)}" y="${margin.top + 15}" text-anchor="middle" fill="#c66" font-size="9">Sat</text>`;
-
-            // DC Load line (only Re, no Rc)
-            svg += `<line x1="${xScale(0)}" y1="${yScale(ieSat)}" x2="${xScale(vceMax)}" y2="${yScale(0)}" stroke="#2266cc" stroke-width="2"/>`;
-            svg += `<text x="${xScale(vceMax * 0.6)}" y="${yScale(ieSat * 0.4) - 5}" fill="#2266cc" font-size="10">DC Load Line</text>`;
-
-            // Q-point
-            const qX = xScale(vce);
-            const qY = yScale(ie);
-            svg += `<circle cx="${qX}" cy="${qY}" r="6" fill="#c33" stroke="#fff" stroke-width="2"/>`;
-            svg += `<text x="${qX + 10}" y="${qY - 10}" fill="#c33" font-weight="bold">Q-point</text>`;
-            svg += `<text x="${qX + 10}" y="${qY + 5}" fill="#c33" font-size="10">(${vce.toFixed(1)}V, ${ie.toFixed(1)}mA)</text>`;
-
             // Swing limits
             const swingDown = ve - 0.3; // Can't go below saturation
             const swingUp = vce - 0.3; // Ve can go up to Vcc - Vce_sat
             const swing = Math.min(swingDown, swingUp);
 
+            const graph = new LoadLineGraph({ yLabel: 'Ie (mA)' });
+
+            // Saturation region
+            graph.addRegion(0, 0.3, { color: '#fee', label: 'Sat' });
+
+            // DC Load line (only Re, no Rc)
+            graph.addLine(0, ieSat, vceMax, 0, { label: 'DC Load Line' });
+
+            // Q-point
+            graph.addQPoint(vce, ie);
+
+            // Swing annotation
             if (swing > 0) {
-                svg += `<text x="${qX}" y="${margin.top + plotH - 10}" text-anchor="middle" fill="#3a3" font-size="10">Swing: ${(swing * 2).toFixed(1)}V p-p</text>`;
+                graph.addAnnotation(vce, 0.5, `Swing: ${(swing * 2).toFixed(1)}V p-p`);
             }
 
-            svg += '</svg>';
-            return svg;
+            return graph.toSVG();
         }
 
         function calculate() {
