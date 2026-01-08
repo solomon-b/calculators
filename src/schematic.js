@@ -153,6 +153,26 @@ class OpAmp extends Component {
     }
 }
 
+// Simple amplifier/buffer triangle - (x,y) is center, shows gain label inside
+class Amplifier extends Component {
+    constructor(id, x, y, options = {}) {
+        super(id, x, y, options);
+        this.pins = {
+            in:  { x: -30, y: 0 },
+            out: { x: 30, y: 0 },
+        };
+    }
+    render() {
+        const { x, y, options } = this;
+        let s = `<polygon points="${x-30},${y-25} ${x-30},${y+25} ${x+30},${y}" fill="none" stroke="black" stroke-width="2"/>`;
+        // Gain label inside
+        if (options.label) {
+            s += `<text x="${x-20}" y="${y+5}" font-size="12">${options.label}</text>`;
+        }
+        return s;
+    }
+}
+
 // Horizontal resistor - (x,y) is center, 50px wide, 20px tall
 class ResistorH extends Component {
     constructor(id, x, y, options = {}) {
@@ -256,6 +276,90 @@ class Ground extends Component {
     }
 }
 
+// Horizontal diode - (x,y) is center, anode left, cathode right (or flipped)
+class DiodeH extends Component {
+    constructor(id, x, y, options = {}) {
+        super(id, x, y, options);
+        const flip = options.flip || false;
+        this.flip = flip;
+        this.pins = flip ? {
+            a: { x: 15, y: 0 },   // anode on right when flipped
+            k: { x: -15, y: 0 },  // cathode on left when flipped
+        } : {
+            a: { x: -15, y: 0 },  // anode on left
+            k: { x: 15, y: 0 },   // cathode on right
+        };
+    }
+    render() {
+        const { x, y, options, flip } = this;
+        const label = options.label || this.id;
+        let s = '';
+        if (flip) {
+            // Triangle pointing left
+            s += `<polygon points="${x+10},${y-10} ${x+10},${y+10} ${x-5},${y}" fill="none" stroke="black" stroke-width="2"/>`;
+            // Cathode bar on left
+            s += `<line x1="${x-5}" y1="${y-10}" x2="${x-5}" y2="${y+10}" stroke="black" stroke-width="2"/>`;
+        } else {
+            // Triangle pointing right (default)
+            s += `<polygon points="${x-10},${y-10} ${x-10},${y+10} ${x+5},${y}" fill="none" stroke="black" stroke-width="2"/>`;
+            // Cathode bar on right
+            s += `<line x1="${x+5}" y1="${y-10}" x2="${x+5}" y2="${y+10}" stroke="black" stroke-width="2"/>`;
+        }
+        // Connection lines
+        s += `<line x1="${x-15}" y1="${y}" x2="${x-10}" y2="${y}" stroke="black" stroke-width="2"/>`;
+        s += `<line x1="${x+5}" y1="${y}" x2="${x+15}" y2="${y}" stroke="black" stroke-width="2"/>`;
+        // Label
+        s += `<text x="${x}" y="${y-15}" text-anchor="middle">${label}</text>`;
+        return s;
+    }
+}
+
+// Vertical diode - (x,y) is center, anode top, cathode bottom (or flipped)
+class DiodeV extends Component {
+    constructor(id, x, y, options = {}) {
+        super(id, x, y, options);
+        const flip = options.flip || false;
+        this.flip = flip;
+        this.pins = flip ? {
+            a: { x: 0, y: 15 },   // anode (bottom when flipped)
+            k: { x: 0, y: -15 },  // cathode (top when flipped)
+        } : {
+            a: { x: 0, y: -15 },  // anode (top)
+            k: { x: 0, y: 15 },   // cathode (bottom)
+        };
+    }
+    render() {
+        const { x, y, flip, options } = this;
+        const label = options.label || this.id;
+        const labelPos = options.labelPos || 'right';
+        let s = '';
+        if (flip) {
+            // Triangle pointing up (toward cathode at top)
+            s += `<polygon points="${x-10},${y+5} ${x+10},${y+5} ${x},${y-10}" fill="none" stroke="black" stroke-width="2"/>`;
+            // Cathode bar at top
+            s += `<line x1="${x-10}" y1="${y-10}" x2="${x+10}" y2="${y-10}" stroke="black" stroke-width="2"/>`;
+            // Connection lines
+            s += `<line x1="${x}" y1="${y-15}" x2="${x}" y2="${y-10}" stroke="black" stroke-width="2"/>`;
+            s += `<line x1="${x}" y1="${y+5}" x2="${x}" y2="${y+15}" stroke="black" stroke-width="2"/>`;
+        } else {
+            // Triangle pointing down (toward cathode at bottom)
+            s += `<polygon points="${x-10},${y-5} ${x+10},${y-5} ${x},${y+10}" fill="none" stroke="black" stroke-width="2"/>`;
+            // Cathode bar at bottom
+            s += `<line x1="${x-10}" y1="${y+10}" x2="${x+10}" y2="${y+10}" stroke="black" stroke-width="2"/>`;
+            // Connection lines
+            s += `<line x1="${x}" y1="${y-15}" x2="${x}" y2="${y-5}" stroke="black" stroke-width="2"/>`;
+            s += `<line x1="${x}" y1="${y+10}" x2="${x}" y2="${y+15}" stroke="black" stroke-width="2"/>`;
+        }
+        // Label
+        if (labelPos === 'right') {
+            s += `<text x="${x+15}" y="${y+5}">${label}</text>`;
+        } else {
+            s += `<text x="${x-15}" y="${y+5}" text-anchor="end">${label}</text>`;
+        }
+        return s;
+    }
+}
+
 // NPN BJT transistor - (x,y) is center of base bar
 // Base on left, collector top-right, emitter bottom-right
 class NPN extends Component {
@@ -306,12 +410,18 @@ class Power extends Component {
 
 const COMPONENT_TYPES = {
     'opamp': OpAmp,
+    'amplifier': Amplifier,
+    'amp': Amplifier,
+    'buffer': Amplifier,
     'resistor': ResistorH,
     'resistor-h': ResistorH,
     'resistor-v': ResistorV,
     'capacitor': CapacitorH,
     'capacitor-h': CapacitorH,
     'capacitor-v': CapacitorV,
+    'diode': DiodeH,
+    'diode-h': DiodeH,
+    'diode-v': DiodeV,
     'ground': Ground,
     'gnd': Ground,
     'power': Power,
