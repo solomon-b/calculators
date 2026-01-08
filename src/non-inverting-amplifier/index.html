@@ -27,24 +27,60 @@
         with the input, and offers very high input impedance.
     </p>
 
-    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Inputs</h2>
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Circuit Parameters</h2>
     <div class="overflow-x-auto">
         <table class="w-full sm:w-auto">
             <tr>
-                <td class="py-2 pr-4">Desired gain:</td>
+                <td class="py-2 pr-4 cursor-help" title="Voltage gain (Vout/Vin). For non-inverting amp, output is in phase with input. Minimum gain is 1 (unity buffer).">Desired gain:</td>
                 <td class="py-2"><input type="number" id="gain" value="10" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V/V</td>
             </tr>
             <tr>
-                <td class="py-2 pr-4">Input (peak):</td>
+                <td class="py-2 pr-4 cursor-help" title="Peak amplitude of the input signal. Used to calculate output swing and check for clipping.">Input (peak):</td>
                 <td class="py-2"><input type="number" id="vin" value="100" step="10" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mV</td>
             </tr>
             <tr>
-                <td class="py-2 pr-4">R1 value:</td>
+                <td class="py-2 pr-4 cursor-help" title="Resistor from inverting input to ground. With Rf, sets gain: Gain = 1 + Rf/R1. Value affects noise performance.">R1 value:</td>
                 <td class="py-2"><input type="number" id="r1" value="10000" step="1000" min="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &#8486;</td>
             </tr>
             <tr>
-                <td class="py-2 pr-4">Supply voltage (±):</td>
+                <td class="py-2 pr-4 cursor-help" title="Dual supply voltage (e.g., ±12V). Output can swing to approximately ±(Vcc - 1.5V) for most op-amps.">Supply voltage (±):</td>
                 <td class="py-2"><input type="number" id="vcc" value="12" step="1" min="5" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Frequency of the input signal. Used to check bandwidth and slew rate limitations.">Signal frequency:</td>
+                <td class="py-2"><input type="number" id="freq" value="1000" step="100" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> Hz</td>
+            </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Op-Amp Selection</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Select a real op-amp to see practical limitations, or Ideal for theoretical behavior.">Op-amp:</td>
+                <td class="py-2">
+                    <select id="opampPreset" onchange="updateOpampFields()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="ideal" selected>Ideal</option>
+                        <option value="tl072">TL072</option>
+                        <option value="ne5532">NE5532</option>
+                        <option value="opa2134">OPA2134</option>
+                        <option value="lm358">LM358</option>
+                        <option value="ad8066">AD8066</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                </td>
+            </tr>
+            <tr id="gbwRow">
+                <td class="py-2 pr-4 cursor-help" title="Gain-Bandwidth Product. Closed-loop bandwidth = GBW / Gain. Higher GBW allows higher gain at higher frequencies.">GBW product:</td>
+                <td class="py-2"><input type="text" id="gbw" value="∞" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> MHz</td>
+            </tr>
+            <tr id="slewRow">
+                <td class="py-2 pr-4 cursor-help" title="Maximum rate of output voltage change. Limits large-signal bandwidth. Max freq = Slew Rate / (2π × Vpeak).">Slew rate:</td>
+                <td class="py-2"><input type="text" id="slewRate" value="∞" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> V/µs</td>
+            </tr>
+            <tr id="noiseRow">
+                <td class="py-2 pr-4 cursor-help" title="Input-referred voltage noise density. Total output noise ≈ en × √bandwidth × gain. Lower is better for low-noise applications.">Input noise:</td>
+                <td class="py-2"><input type="text" id="noiseVoltage" value="0" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> nV/√Hz</td>
             </tr>
         </table>
     </div>
@@ -60,30 +96,109 @@
         <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
         <div id="schematic" class="overflow-x-auto"></div>
 
-        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Calculated Values</h2>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Component Values</h2>
         <div class="overflow-x-auto">
             <table class="w-full sm:w-auto">
-                <tr><td class="py-2 pr-4">R1 (to ground):</td><td id="r1_out" class="py-2 text-right font-mono"></td></tr>
-                <tr><td class="py-2 pr-4">Rf (feedback):</td><td id="rf" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Resistor from inverting input to ground. With Rf, sets gain. Rounded to nearest E24 value.">R1 (to ground):</td><td id="r1_out" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Feedback resistor. Gain = 1 + Rf/R1. Rounded to nearest E24 value.">Rf (feedback):</td><td id="rf" class="py-2 text-right font-mono"></td></tr>
             </table>
         </div>
 
-        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Performance</h2>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">DC Performance</h2>
         <div class="overflow-x-auto">
             <table class="w-full sm:w-auto">
-                <tr><td class="py-2 pr-4">Gain:</td><td id="gainOut" class="py-2 text-right font-mono"></td></tr>
-                <tr><td class="py-2 pr-4">Input impedance:</td><td id="zinOut" class="py-2 text-right font-mono"></td></tr>
-                <tr><td class="py-2 pr-4">Expected output:</td><td id="voutOut" class="py-2 text-right font-mono"></td></tr>
-                <tr><td class="py-2 pr-4">Max output swing:</td><td id="swingOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Actual voltage gain with E24 resistor values. Shown in V/V and dB. Positive sign indicates no phase inversion.">Gain:</td><td id="gainOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Impedance seen by the signal source. Non-inverting input has very high impedance (op-amp's input impedance, typically MΩ to GΩ).">Input impedance:</td><td id="zinOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Peak output voltage = Input peak × Gain. Check against max swing for clipping.">Expected output:</td><td id="voutOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Maximum output voltage before clipping. Typically Vcc minus 1-2V for standard op-amps.">Max output swing:</td><td id="swingOut" class="py-2 text-right font-mono"></td></tr>
             </table>
         </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">AC Performance</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help" title="Small-signal bandwidth where gain drops 3dB (-30%). Calculated as GBW / Gain.">-3dB bandwidth:</td><td id="bwOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Maximum frequency for full output swing without slew-rate distortion. Slew Rate / (2π × Vout_peak).">Slew-limited freq:</td><td id="slewFreqOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Actual usable bandwidth: the lower of small-signal bandwidth and slew-rate limit.">Effective bandwidth:</td><td id="effectiveBwOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Actual gain at your signal frequency, accounting for bandwidth rolloff. Gain drops as frequency approaches bandwidth.">Gain at signal freq:</td><td id="gainAtFreqOut" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Noise Performance</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help" title="Total RMS noise at output. Calculated as input noise × √bandwidth × gain. Simplified model ignoring resistor thermal noise.">Output noise (RMS):</td><td id="noiseOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help" title="Signal-to-Noise Ratio in dB. SNR = 20×log10(Vout_rms / Noise_rms). Higher is better; >60dB is good for audio.">SNR:</td><td id="snrOut" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Frequency Response</h2>
+        <div id="freqResponse" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Waveforms</h2>
+        <div id="waveforms" class="overflow-x-auto"></div>
 
         <p id="note" class="text-gray-500 mt-4"></p>
     </div>
 
     <script src="../common.js"></script>
     <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
     <script>
+        function updateOpampFields() {
+            const preset = document.getElementById('opampPreset').value;
+            const isCustom = preset === 'custom';
+            const isIdeal = preset === 'ideal';
+
+            // Enable/disable fields based on custom selection
+            document.getElementById('gbw').disabled = !isCustom;
+            document.getElementById('slewRate').disabled = !isCustom;
+            document.getElementById('noiseVoltage').disabled = !isCustom;
+
+            // Update field styling
+            const fields = ['gbw', 'slewRate', 'noiseVoltage'];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.toggle('bg-gray-100', !isCustom);
+                el.classList.toggle('text-gray-500', !isCustom);
+            });
+
+            // Populate values from preset
+            if (!isCustom && OPAMP_PRESETS[preset]) {
+                const p = OPAMP_PRESETS[preset];
+                if (isIdeal) {
+                    document.getElementById('gbw').value = '∞';
+                    document.getElementById('slewRate').value = '∞';
+                    document.getElementById('noiseVoltage').value = '0';
+                } else {
+                    document.getElementById('gbw').value = (p.gbw / 1e6).toFixed(1);
+                    document.getElementById('slewRate').value = (p.slewRate / 1e6).toFixed(1);
+                    document.getElementById('noiseVoltage').value = (p.noiseVoltage * 1e9).toFixed(0);
+                }
+            }
+        }
+
+        function getOpampParams() {
+            const preset = document.getElementById('opampPreset').value;
+
+            if (preset === 'ideal') {
+                return { gbw: Infinity, slewRate: Infinity, noiseVoltage: 0, isIdeal: true };
+            }
+
+            if (preset !== 'custom' && OPAMP_PRESETS[preset]) {
+                const p = OPAMP_PRESETS[preset];
+                return { gbw: p.gbw, slewRate: p.slewRate, noiseVoltage: p.noiseVoltage, isIdeal: false };
+            }
+
+            // Custom values
+            return {
+                gbw: parseFloat(document.getElementById('gbw').value) * 1e6,
+                slewRate: parseFloat(document.getElementById('slewRate').value) * 1e6,
+                noiseVoltage: parseFloat(document.getElementById('noiseVoltage').value) * 1e-9,
+                isIdeal: false
+            };
+        }
+
         function drawSchematic(r1Rounded, rfRounded, vcc, actualGain, voutPeak, maxSwing) {
             const sch = new Schematic(420, 280);
 
@@ -138,11 +253,183 @@
             return sch.toSVG();
         }
 
+        function drawFrequencyResponse(actualGain, opamp, signalFreq) {
+            const gainDb = 20 * Math.log10(actualGain);
+
+            if (opamp.isIdeal) {
+                // Ideal op-amp: flat response to very high frequency
+                const graph = new Graph({
+                    xMin: 1,
+                    xMax: 1e9,
+                    yMin: -40,
+                    yMax: gainDb + 10
+                });
+
+                const curve = [];
+                for (let i = 0; i <= 100; i++) {
+                    const f = Math.pow(10, i / 100 * 9);
+                    curve.push({ x: f, y: gainDb });
+                }
+                graph.addCurve(curve, { color: '#2266cc', label: 'Gain (ideal)' });
+                graph.addVLine(signalFreq, { color: '#22cc66', label: 'Signal: ' + fmt(signalFreq, 'Hz') });
+
+                return graph.toSVG();
+            }
+
+            // Real op-amp with single-pole rolloff
+            const f3db = opamp.gbw / actualGain;
+            const fMax = Math.min(opamp.gbw * 10, 1e9);
+
+            const graph = new Graph({
+                xMin: 1,
+                xMax: fMax,
+                yMin: -40,
+                yMax: gainDb + 10
+            });
+
+            // Magnitude function: first-order lowpass
+            const magFn = (f) => {
+                const ratio = f / f3db;
+                return actualGain / Math.sqrt(1 + ratio * ratio);
+            };
+
+            const curve = generateResponseCurve(1, fMax, magFn);
+            graph.addCurve(curve, { color: '#2266cc', label: 'Gain' });
+
+            // Reference lines
+            graph.addHLine(gainDb - 3, { color: '#f88', label: '-3dB' });
+            graph.addVLine(f3db, { color: '#88f', label: 'BW: ' + fmt(f3db, 'Hz') });
+            graph.addVLine(signalFreq, { color: '#22cc66', label: 'Signal: ' + fmt(signalFreq, 'Hz') });
+
+            return graph.toSVG();
+        }
+
+        function drawWaveforms(vin, vout, maxSwing, signalFreq, opamp, actualGain) {
+            const width = 500;
+            const height = 200;
+            const margin = { top: 20, right: 20, bottom: 30, left: 45 };
+            const plotW = width - margin.left - margin.right;
+            const plotH = height - margin.top - margin.bottom;
+
+            // Determine if clipping or slew limiting occurs
+            const isClipping = vout > maxSwing;
+            const clipLevel = maxSwing;
+
+            // Calculate slew rate limit
+            let isSlewLimited = false;
+            let slewLimitedOutput = vout;
+            if (!opamp.isIdeal) {
+                const maxSlewFreq = opamp.slewRate / (2 * Math.PI * vout);
+                isSlewLimited = signalFreq > maxSlewFreq * 0.5;
+                if (isSlewLimited) {
+                    slewLimitedOutput = opamp.slewRate / (2 * Math.PI * signalFreq);
+                }
+            }
+
+            // Calculate bandwidth attenuation
+            let bwAttenuation = 1;
+            if (!opamp.isIdeal) {
+                const f3db = opamp.gbw / actualGain;
+                const ratio = signalFreq / f3db;
+                bwAttenuation = 1 / Math.sqrt(1 + ratio * ratio);
+            }
+            const attenuatedVout = vout * bwAttenuation;
+
+            // Calculate actual displayed output amplitude (after all effects)
+            let displayedVout = isSlewLimited ? slewLimitedOutput : attenuatedVout;
+            if (isClipping) displayedVout = Math.min(displayedVout, clipLevel);
+
+            // Scale Y-axis to fit the larger waveform
+            const maxV = Math.max(vin, displayedVout) * 1.2;
+            const numPoints = 200;
+            const cycles = 2;
+
+            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
+
+            // Background
+            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
+
+            // Zero line
+            const zeroY = margin.top + plotH / 2;
+            svg += `<line x1="${margin.left}" y1="${zeroY}" x2="${margin.left + plotW}" y2="${zeroY}" stroke="#aaa" stroke-width="1"/>`;
+
+            // Clip level lines (if applicable)
+            if (isClipping) {
+                const clipYPos = margin.top + plotH / 2 - (clipLevel / maxV) * (plotH / 2);
+                const clipYNeg = margin.top + plotH / 2 + (clipLevel / maxV) * (plotH / 2);
+                svg += `<line x1="${margin.left}" y1="${clipYPos}" x2="${margin.left + plotW}" y2="${clipYPos}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+                svg += `<line x1="${margin.left}" y1="${clipYNeg}" x2="${margin.left + plotW}" y2="${clipYNeg}" stroke="#f88" stroke-width="1" stroke-dasharray="4,2"/>`;
+            }
+
+            // Generate waveform paths
+            let inputPath = '';
+            let outputPath = '';
+
+            for (let i = 0; i <= numPoints; i++) {
+                const t = (i / numPoints) * cycles;
+                const angle = t * 2 * Math.PI;
+                const x = margin.left + (i / numPoints) * plotW;
+
+                // Input waveform
+                const vinVal = vin * Math.sin(angle);
+                const yIn = margin.top + plotH / 2 - (vinVal / maxV) * (plotH / 2);
+
+                // Output waveform (NOT inverted for non-inverting amp)
+                let voutVal = attenuatedVout * Math.sin(angle);
+
+                // Apply slew rate limiting
+                if (isSlewLimited && !opamp.isIdeal) {
+                    voutVal = slewLimitedOutput * Math.sin(angle);
+                }
+
+                // Apply clipping
+                if (isClipping) {
+                    voutVal = Math.max(-clipLevel, Math.min(clipLevel, voutVal));
+                }
+
+                const yOut = margin.top + plotH / 2 - (voutVal / maxV) * (plotH / 2);
+
+                if (i === 0) {
+                    inputPath = `M ${x} ${yIn}`;
+                    outputPath = `M ${x} ${yOut}`;
+                } else {
+                    inputPath += ` L ${x} ${yIn}`;
+                    outputPath += ` L ${x} ${yOut}`;
+                }
+            }
+
+            // Draw waveforms
+            svg += `<path d="${inputPath}" fill="none" stroke="#2266cc" stroke-width="2"/>`;
+            svg += `<path d="${outputPath}" fill="none" stroke="#cc2222" stroke-width="2"/>`;
+
+            // Y-axis labels
+            svg += `<text x="${margin.left - 5}" y="${margin.top + 5}" text-anchor="end">+${maxV.toFixed(1)}V</text>`;
+            svg += `<text x="${margin.left - 5}" y="${zeroY + 4}" text-anchor="end">0</text>`;
+            svg += `<text x="${margin.left - 5}" y="${margin.top + plotH}" text-anchor="end">-${maxV.toFixed(1)}V</text>`;
+
+            // X-axis label
+            svg += `<text x="${margin.left + plotW / 2}" y="${height - 5}" text-anchor="middle">Time (${cycles} cycles at ${fmt(signalFreq, 'Hz')})</text>`;
+
+            // Legend
+            svg += `<line x1="${margin.left + 10}" y1="${margin.top + 12}" x2="${margin.left + 30}" y2="${margin.top + 12}" stroke="#2266cc" stroke-width="2"/>`;
+            svg += `<text x="${margin.left + 35}" y="${margin.top + 16}">Input (${fmt(vin, 'V')} peak)</text>`;
+            svg += `<line x1="${margin.left + 180}" y1="${margin.top + 12}" x2="${margin.left + 200}" y2="${margin.top + 12}" stroke="#cc2222" stroke-width="2"/>`;
+            let outLabel = `Output (${fmt(displayedVout, 'V')} peak)`;
+            if (isClipping) outLabel += ' CLIPPED';
+            if (isSlewLimited) outLabel += ' SLEW LIMITED';
+            svg += `<text x="${margin.left + 205}" y="${margin.top + 16}">${outLabel}</text>`;
+
+            svg += '</svg>';
+            return svg;
+        }
+
         function calculate() {
             const targetGain = parseFloat(document.getElementById('gain').value);
             const vin = parseFloat(document.getElementById('vin').value) / 1000;
             const r1Target = parseFloat(document.getElementById('r1').value);
             const vcc = parseFloat(document.getElementById('vcc').value);
+            const signalFreq = parseFloat(document.getElementById('freq').value);
+            const opamp = getOpampParams();
 
             // For non-inverting amp: Gain = 1 + Rf / R1
             // So Rf = (Gain - 1) * R1
@@ -152,6 +439,7 @@
 
             // Actual gain with rounded values
             const actualGain = 1 + rfRounded / r1Rounded;
+            const gainDb = 20 * Math.log10(actualGain);
 
             // Output calculations
             const voutPeak = vin * actualGain;
@@ -159,12 +447,54 @@
             // Op-amp output swing is typically Vcc - 1 to 2V for standard op-amps
             const maxSwing = vcc - 1.5;
 
+            // Bandwidth calculations
+            let bandwidth, slewFreq, effectiveBw, gainAtSignalFreq;
+
+            if (opamp.isIdeal) {
+                bandwidth = Infinity;
+                slewFreq = Infinity;
+                effectiveBw = Infinity;
+                gainAtSignalFreq = actualGain;
+            } else {
+                bandwidth = opamp.gbw / actualGain;
+                slewFreq = opamp.slewRate / (2 * Math.PI * voutPeak);
+                effectiveBw = Math.min(bandwidth, slewFreq);
+
+                // Gain at signal frequency (first-order rolloff)
+                const ratio = signalFreq / bandwidth;
+                gainAtSignalFreq = actualGain / Math.sqrt(1 + ratio * ratio);
+            }
+
+            // Noise calculations
+            let noiseRms, snr;
+            if (opamp.isIdeal || opamp.noiseVoltage === 0) {
+                noiseRms = 0;
+                snr = Infinity;
+            } else {
+                // Simplified noise: en * sqrt(bandwidth) * gain
+                const noiseBw = Math.min(effectiveBw, 1e6);
+                noiseRms = opamp.noiseVoltage * Math.sqrt(noiseBw) * actualGain;
+                const voutRms = voutPeak / Math.sqrt(2);
+                snr = 20 * Math.log10(voutRms / noiseRms);
+            }
+
             let notes = [];
 
             // Warnings
             const warn = document.getElementById('warning');
+            let warnings = [];
             if (voutPeak > maxSwing) {
-                warn.textContent = 'Warning: output (' + fmtLong(voutPeak, 'V') + ' peak) exceeds swing (±' + fmtLong(maxSwing, 'V') + '). Signal will clip.';
+                warnings.push('Output (' + fmtLong(voutPeak, 'V') + ' peak) exceeds swing (±' + fmtLong(maxSwing, 'V') + '). Signal will clip.');
+            }
+            if (!opamp.isIdeal && signalFreq > bandwidth) {
+                warnings.push('Signal frequency exceeds -3dB bandwidth. Gain will be reduced.');
+            }
+            if (!opamp.isIdeal && signalFreq > slewFreq * 0.5) {
+                warnings.push('Signal may be slew-rate limited. Consider lower frequency or smaller output swing.');
+            }
+
+            if (warnings.length > 0) {
+                warn.innerHTML = warnings.join('<br>');
                 warn.classList.remove('hidden');
             } else {
                 warn.classList.add('hidden');
@@ -190,11 +520,40 @@
             document.getElementById('r1_out').textContent = fmtLong(r1Rounded, 'Ω');
             document.getElementById('rf').textContent = fmtLong(rfRounded, 'Ω');
 
-            // Performance
-            document.getElementById('gainOut').textContent = '+' + actualGain.toFixed(1) + ' V/V (non-inverting)';
+            // DC Performance
+            document.getElementById('gainOut').textContent = '+' + actualGain.toFixed(2) + ' V/V (' + gainDb.toFixed(1) + ' dB)';
             document.getElementById('zinOut').textContent = 'Very high (op-amp input impedance)';
             document.getElementById('voutOut').textContent = fmtLong(voutPeak, 'V') + ' peak';
             document.getElementById('swingOut').textContent = '±' + fmtLong(maxSwing, 'V');
+
+            // AC Performance
+            if (opamp.isIdeal) {
+                document.getElementById('bwOut').textContent = '∞ (ideal)';
+                document.getElementById('slewFreqOut').textContent = '∞ (ideal)';
+                document.getElementById('effectiveBwOut').textContent = '∞ (ideal)';
+                document.getElementById('gainAtFreqOut').textContent = '+' + actualGain.toFixed(2) + ' V/V';
+            } else {
+                document.getElementById('bwOut').textContent = fmtLong(bandwidth, 'Hz');
+                document.getElementById('slewFreqOut').textContent = fmtLong(slewFreq, 'Hz') + ' (for ' + fmtLong(voutPeak, 'V') + ' out)';
+                document.getElementById('effectiveBwOut').textContent = fmtLong(effectiveBw, 'Hz');
+                const gainAtFreqDb = 20 * Math.log10(gainAtSignalFreq);
+                document.getElementById('gainAtFreqOut').textContent = '+' + gainAtSignalFreq.toFixed(2) + ' V/V (' + gainAtFreqDb.toFixed(1) + ' dB)';
+            }
+
+            // Noise Performance
+            if (opamp.isIdeal) {
+                document.getElementById('noiseOut').textContent = '0 (ideal)';
+                document.getElementById('snrOut').textContent = '∞ (ideal)';
+            } else {
+                document.getElementById('noiseOut').textContent = fmtLong(noiseRms, 'V');
+                document.getElementById('snrOut').textContent = snr.toFixed(1) + ' dB';
+            }
+
+            // Frequency response graph
+            document.getElementById('freqResponse').innerHTML = drawFrequencyResponse(actualGain, opamp, signalFreq);
+
+            // Waveforms
+            document.getElementById('waveforms').innerHTML = drawWaveforms(vin, voutPeak, maxSwing, signalFreq, opamp, actualGain);
 
             document.getElementById('note').textContent = notes.join(' ');
         }
@@ -204,10 +563,15 @@
             document.getElementById('vin').value = '100';
             document.getElementById('r1').value = '10000';
             document.getElementById('vcc').value = '12';
-            calculate();
+            document.getElementById('freq').value = '1000';
+            document.getElementById('opampPreset').value = 'ideal';
+            updateOpampFields();
         }
 
-        window.onload = calculate;
+        window.onload = function() {
+            updateOpampFields();
+            calculate();
+        };
     </script>
 </body>
 </html>

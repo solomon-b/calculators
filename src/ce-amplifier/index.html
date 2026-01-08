@@ -68,13 +68,33 @@
                 <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="DC current through the collector. Higher values give more bandwidth but use more power.">Collector current (Ic):</td>
                 <td class="py-2"><input type="number" id="ic" value="1" step="0.5" min="0.1" max="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mA</td>
             </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Transistor Selection</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
             <tr>
-                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain of your transistor. Find this in the datasheet. Typical values: 100-300.">&#946; (hFE):</td>
-                <td class="py-2"><input type="number" id="beta" value="100" step="10" min="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Select a real transistor to see practical limitations, or Ideal for theoretical behavior with infinite β and bandwidth.">Transistor:</td>
+                <td class="py-2">
+                    <select id="transistorPreset" onchange="updateTransistorFields()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="ideal" selected>Ideal</option>
+                        <option value="2n2222">2N2222</option>
+                        <option value="2n3904">2N3904</option>
+                        <option value="bc547">BC547</option>
+                        <option value="2n5551">2N5551</option>
+                        <option value="mpsa18">MPSA18</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                </td>
             </tr>
             <tr>
-                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Transition frequency - where the transistor's current gain drops to 1. Limits high-frequency response.">fT (transistor):</td>
-                <td class="py-2"><input type="number" id="ft" value="150" step="50" min="10" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> MHz</td>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain (Ic/Ib). Higher β means less base current needed, higher input impedance. Ideal assumes very high β.">&#946; (hFE):</td>
+                <td class="py-2"><input type="text" id="beta" value="∞" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled></td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Transition frequency - where β drops to 1. Limits high-frequency gain. fβ = fT/β is where gain starts rolling off.">fT:</td>
+                <td class="py-2"><input type="text" id="ft" value="∞" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> MHz</td>
             </tr>
         </table>
     </div>
@@ -119,7 +139,7 @@
                 <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Signal loss at input due to source impedance. Zin / (Zin + Zsource)">Input attenuation:</td><td id="inputAtten" class="py-2 text-right font-mono"></td></tr>
                 <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Signal loss at output due to load. Rload / (Rload + Zout)">Output attenuation:</td><td id="outputAtten" class="py-2 text-right font-mono"></td></tr>
                 <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400 font-bold" title="What you actually measure: transistor gain &#215; input attenuation &#215; output attenuation">Effective gain:</td><td id="effectiveGain" class="py-2 text-right font-mono font-bold"></td></tr>
-                <tr><td class="py-2 pr-4">Expected output:</td><td id="expectedOut" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Peak output voltage based on input level and effective gain">Expected output:</td><td id="expectedOut" class="py-2 text-right font-mono"></td></tr>
             </table>
         </div>
 
@@ -134,9 +154,9 @@
 
         <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Load Lines</h2>
         <p class="text-sm text-gray-600 mb-3 max-w-xl">
-            The DC load line (solid) shows the operating path set by Rc + Re.
-            When a load is connected, the AC load line (dashed) is steeper because AC sees Rc || Rload.
-            The Q-point sits on both lines - DC sets the bias, AC determines the signal swing.
+            The DC load line (solid blue) shows the operating path set by Rc + Re.
+            When a load is connected, the AC load line (dashed orange) is steeper because AC sees Rc || Rload.
+            The Q-point (red dot) sits on both lines. The green dashed lines show the maximum swing limits before clipping - left is saturation, right is cutoff. For maximum undistorted output, the Q-point should be centered between these limits.
         </p>
         <div id="loadLine" class="overflow-x-auto"></div>
 
@@ -242,6 +262,54 @@
     <script src="../schematic.js"></script>
     <script src="../graph.js"></script>
     <script>
+        function updateTransistorFields() {
+            const preset = document.getElementById('transistorPreset').value;
+            const isCustom = preset === 'custom';
+            const betaEl = document.getElementById('beta');
+            const ftEl = document.getElementById('ft');
+
+            // Enable/disable fields based on custom selection
+            betaEl.disabled = !isCustom;
+            ftEl.disabled = !isCustom;
+
+            // Update field styling
+            betaEl.classList.toggle('bg-gray-100', !isCustom);
+            betaEl.classList.toggle('text-gray-500', !isCustom);
+            ftEl.classList.toggle('bg-gray-100', !isCustom);
+            ftEl.classList.toggle('text-gray-500', !isCustom);
+
+            // Populate values from preset
+            if (preset === 'ideal') {
+                betaEl.value = '∞';
+                ftEl.value = '∞';
+            } else if (preset !== 'custom' && typeof BJT_PRESETS !== 'undefined' && BJT_PRESETS[preset]) {
+                const p = BJT_PRESETS[preset];
+                betaEl.value = p.beta;
+                ftEl.value = (p.ft / 1e6).toFixed(0);
+            }
+        }
+
+        function getTransistorParams() {
+            const preset = document.getElementById('transistorPreset').value;
+
+            if (preset === 'ideal') {
+                return { beta: 100000, ft: 1e12, vceSat: 0, isIdeal: true };
+            }
+
+            if (preset !== 'custom' && BJT_PRESETS[preset]) {
+                const p = BJT_PRESETS[preset];
+                return { beta: p.beta, ft: p.ft, vceSat: p.vceSat, isIdeal: false };
+            }
+
+            // Custom values
+            return {
+                beta: parseFloat(document.getElementById('beta').value),
+                ft: parseFloat(document.getElementById('ft').value) * 1e6,
+                vceSat: 0.3,
+                isIdeal: false
+            };
+        }
+
         function drawSchematic(vals) {
             const sch = new Schematic(450, 420);
             const hasBypass = vals.ce !== null;
@@ -542,7 +610,8 @@
 
         // Draw DC load line with Q-point and optional AC load line
         function drawLoadLine(params) {
-            const { vcc, rc, re, ic, vce, veMin, rload } = params;
+            const { vcc, rc, re, ic, vce, veMin, rload, vceSat: vceSatParam } = params;
+            const vceSat = vceSatParam || 0.3; // Default for backwards compatibility
 
             const width = 500;
             const height = 300;
@@ -629,8 +698,7 @@
             svg += `<text x="${qX + 10}" y="${qY + 5}" fill="#c33" font-size="10">(${vce.toFixed(1)}V, ${ic.toFixed(2)}mA)</text>`;
 
             // Show swing limits with dashed lines
-            // Vce can't go below Vce_sat (~0.3V) or above Vcc - Ve
-            const vceSat = 0.3;
+            // Vce can't go below Vce_sat or above Vcc - Ve
             const swingDown = vce - vceSat;
             const swingUp = (vcc - veMin) - vce; // Max Vce at cutoff is approximately Vcc - Ve
             const swing = Math.min(swingDown, swingUp);
@@ -670,8 +738,12 @@
             const rload = rloadInput ? parseFloat(rloadInput) : Infinity;
             const bypassMode = document.getElementById('bypassMode').value;
             const ic = parseFloat(document.getElementById('ic').value) / 1000; // mA to A
-            const beta = parseFloat(document.getElementById('beta').value);
-            const fT = parseFloat(document.getElementById('ft').value) * 1e6; // MHz to Hz
+
+            // Get transistor parameters from preset or custom
+            const transistor = getTransistorParams();
+            const beta = transistor.beta;
+            const fT = transistor.ft;
+            const vceSat = transistor.vceSat;
 
             // Biasing: set Ve for stability, calculate operating point
             const ve = Math.max(vcc * 0.1, 1.0);
@@ -698,7 +770,7 @@
 
             // Check if Rc is feasible
             const vc = vcc - ic * rc;
-            const vcMin = ve + 0.3; // Minimum Vc for active region
+            const vcMin = ve + vceSat; // Minimum Vc for active region
             let notes = [];
 
             if (vc < vcMin) {
@@ -829,7 +901,8 @@
                 ic: ic * 1000, // Convert A to mA
                 vce: vcActual - ve, // Vce = Vc - Ve
                 veMin: ve,
-                rload: isFinite(rload) ? rload / 1000 : null // Convert to kΩ
+                rload: isFinite(rload) ? rload / 1000 : null, // Convert to kΩ
+                vceSat: vceSat
             });
 
             // Draw frequency response
@@ -859,12 +932,14 @@
             document.getElementById('rload').value = '';
             document.getElementById('bypassMode').value = 'none';
             document.getElementById('ic').value = '1';
-            document.getElementById('beta').value = '100';
-            document.getElementById('ft').value = '150';
-            calculate();
+            document.getElementById('transistorPreset').value = 'ideal';
+            updateTransistorFields();
         }
 
-        window.onload = calculate;
+        window.onload = function() {
+            updateTransistorFields();
+            calculate();
+        };
     </script>
 </body>
 </html>

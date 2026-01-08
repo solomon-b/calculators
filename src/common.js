@@ -1,5 +1,25 @@
 // Common utilities for electronics calculators
 
+// Op-amp presets: GBW (Hz), Slew Rate (V/s), Input Noise Density (V/√Hz)
+const OPAMP_PRESETS = {
+    ideal: { name: 'Ideal', gbw: Infinity, slewRate: Infinity, noiseVoltage: 0 },
+    tl072: { name: 'TL072', gbw: 3e6, slewRate: 13e6, noiseVoltage: 18e-9 },
+    ne5532: { name: 'NE5532', gbw: 10e6, slewRate: 9e6, noiseVoltage: 5e-9 },
+    opa2134: { name: 'OPA2134', gbw: 8e6, slewRate: 20e6, noiseVoltage: 8e-9 },
+    lm358: { name: 'LM358', gbw: 1e6, slewRate: 0.5e6, noiseVoltage: 40e-9 },
+    ad8066: { name: 'AD8066', gbw: 145e6, slewRate: 180e6, noiseVoltage: 7e-9 }
+};
+
+// BJT transistor presets: beta (hFE), fT (Hz), Vce_sat (V)
+const BJT_PRESETS = {
+    ideal: { name: 'Ideal', beta: 100000, ft: 1e12, vceSat: 0 },
+    '2n2222': { name: '2N2222', beta: 150, ft: 300e6, vceSat: 0.3 },
+    '2n3904': { name: '2N3904', beta: 200, ft: 300e6, vceSat: 0.2 },
+    'bc547': { name: 'BC547', beta: 300, ft: 300e6, vceSat: 0.25 },
+    '2n5551': { name: '2N5551', beta: 120, ft: 100e6, vceSat: 0.4 },
+    'mpsa18': { name: 'MPSA18', beta: 1000, ft: 50e6, vceSat: 0.25 }
+};
+
 // E24 resistor series (24 values per decade)
 const E24 = [1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.7, 3.0,
              3.3, 3.6, 3.9, 4.3, 4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1];
