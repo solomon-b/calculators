@@ -55,9 +55,33 @@
                 <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="DC current through the emitter. Higher values give lower output impedance but use more power.">Emitter current (Ie):</td>
                 <td class="py-2"><input type="number" id="ie" value="5" step="1" min="0.5" max="50" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> mA</td>
             </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Transistor Selection</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
             <tr>
-                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain of your transistor. Find this in the datasheet. Typical values: 100-300.">&#946; (hFE):</td>
-                <td class="py-2"><input type="number" id="beta" value="100" step="10" min="20" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Select a real transistor to see practical limitations, or Ideal for theoretical behavior with infinite β and bandwidth.">Transistor:</td>
+                <td class="py-2">
+                    <select id="transistorPreset" onchange="updateTransistorFields()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="ideal" selected>Ideal</option>
+                        <option value="2n2222">2N2222</option>
+                        <option value="2n3904">2N3904</option>
+                        <option value="bc547">BC547</option>
+                        <option value="2n5551">2N5551</option>
+                        <option value="mpsa18">MPSA18</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain (Ic/Ib). Higher β means less base current needed, higher input impedance.">&#946; (hFE):</td>
+                <td class="py-2"><input type="text" id="beta" value="∞" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled></td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Transition frequency - where β drops to 1. Limits high-frequency performance.">fT:</td>
+                <td class="py-2"><input type="text" id="ft" value="∞" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> MHz</td>
             </tr>
         </table>
     </div>
@@ -118,6 +142,14 @@
             (collector connects directly to Vcc).
         </p>
         <div id="loadLine" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Frequency Response</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            Low frequencies are limited by coupling capacitors (Cin, Cout).
+            High frequencies are limited by the transistor's &#946; rolloff at f&#946; = fT/&#946;.
+            The emitter follower has minimal Miller effect since voltage gain is near unity.
+        </p>
+        <div id="freqResponse" class="overflow-x-auto"></div>
 
         <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Design Formulas</h2>
         <details class="my-4">
@@ -194,6 +226,54 @@
     <script src="../schematic.js"></script>
     <script src="../graph.js"></script>
     <script>
+        function updateTransistorFields() {
+            const preset = document.getElementById('transistorPreset').value;
+            const isCustom = preset === 'custom';
+            const betaEl = document.getElementById('beta');
+            const ftEl = document.getElementById('ft');
+
+            // Enable/disable fields based on custom selection
+            betaEl.disabled = !isCustom;
+            ftEl.disabled = !isCustom;
+
+            // Update field styling
+            betaEl.classList.toggle('bg-gray-100', !isCustom);
+            betaEl.classList.toggle('text-gray-500', !isCustom);
+            ftEl.classList.toggle('bg-gray-100', !isCustom);
+            ftEl.classList.toggle('text-gray-500', !isCustom);
+
+            // Populate values from preset
+            if (preset === 'ideal') {
+                betaEl.value = '∞';
+                ftEl.value = '∞';
+            } else if (preset !== 'custom' && typeof BJT_PRESETS !== 'undefined' && BJT_PRESETS[preset]) {
+                const p = BJT_PRESETS[preset];
+                betaEl.value = p.beta;
+                ftEl.value = (p.ft / 1e6).toFixed(0);
+            }
+        }
+
+        function getTransistorParams() {
+            const preset = document.getElementById('transistorPreset').value;
+
+            if (preset === 'ideal') {
+                return { beta: 100000, ft: 1e12, vceSat: 0, isIdeal: true };
+            }
+
+            if (preset !== 'custom' && BJT_PRESETS[preset]) {
+                const p = BJT_PRESETS[preset];
+                return { beta: p.beta, ft: p.ft, vceSat: p.vceSat, isIdeal: false };
+            }
+
+            // Custom values
+            return {
+                beta: parseFloat(document.getElementById('beta').value),
+                ft: parseFloat(document.getElementById('ft').value) * 1e6,
+                vceSat: 0.3,
+                isIdeal: false
+            };
+        }
+
         function drawSchematic(vals) {
             const sch = new Schematic(400, 380);
 
@@ -315,7 +395,7 @@
 
         // Draw DC load line for emitter follower
         function drawLoadLine(params) {
-            const { vcc, re, ie, ve } = params;
+            const { vcc, re, ie, ve, vceSat = 0.3 } = params;
 
             // For emitter follower: Vce = Vcc - Ve = Vcc - Ie*Re
             // Load line: Ie from 0 to Vcc/Re
@@ -326,14 +406,14 @@
             const vce = vcc - ve;
 
             // Swing limits
-            const swingDown = ve - 0.3; // Can't go below saturation
-            const swingUp = vce - 0.3; // Ve can go up to Vcc - Vce_sat
+            const swingDown = ve - vceSat; // Can't go below saturation
+            const swingUp = vce - vceSat; // Ve can go up to Vcc - Vce_sat
             const swing = Math.min(swingDown, swingUp);
 
             const graph = new LoadLineGraph({ yLabel: 'Ie (mA)' });
 
             // Saturation region
-            graph.addRegion(0, 0.3, { color: '#fee', label: 'Sat' });
+            graph.addRegion(0, vceSat, { color: '#fee', label: 'Sat' });
 
             // DC Load line (only Re, no Rc)
             graph.addLine(0, ieSat, vceMax, 0, { label: 'DC Load Line' });
@@ -349,6 +429,80 @@
             return graph.toSVG();
         }
 
+        // Calculate emitter follower frequency response
+        function drawFrequencyResponse(params) {
+            const { zin, zout, zsource, re, reIntrinsic, rload, cin, cout, beta, fLow, fT } = params;
+
+            // Frequency range: 1Hz to 100MHz
+            const fMin = 1;
+            const fMax = 100000000;
+
+            // Effective impedances
+            const zinEff = zin > 0 ? zin : 1000;
+            const rloadEff = rload > 0 ? rload : 1e9;
+
+            // Corner frequencies for high-pass stages (coupling capacitors)
+            const fcIn = 1 / (2 * Math.PI * cin * (zsource + zinEff));
+            const fcOut = 1 / (2 * Math.PI * cout * (zout + rloadEff));
+
+            // High-frequency limitation: fβ = fT / β
+            const fBeta = fT / beta;
+
+            // Miller effect is minimal for emitter follower (gain ≈ 1)
+            // Cmiller ≈ Cbc * (1 - Av) ≈ Cbc * 0 ≈ 0 (negligible)
+            // So high-frequency limit is dominated by fβ
+            const fH = fBeta;
+
+            // Parallel combination of Re and Rload for AC analysis
+            const reParallelRload = (re * rload) / (re + rload);
+
+            // Voltage gain (slightly less than 1)
+            const gain = reParallelRload / (reIntrinsic + reParallelRload);
+
+            // Input attenuation from source impedance
+            const inputAtten = zsource > 0 ? zinEff / (zinEff + zsource) : 1;
+
+            // Magnitude function
+            function magnitude(f) {
+                // High-pass response from Cin
+                const hpIn = f / Math.sqrt(f * f + fcIn * fcIn);
+                // High-pass response from Cout
+                const hpOut = f / Math.sqrt(f * f + fcOut * fcOut);
+
+                // Low-pass response from transistor HF limitations
+                const lpHF = fH / Math.sqrt(f * f + fH * fH);
+
+                const result = inputAtten * gain * hpIn * hpOut * lpHF;
+                return Math.max(result, 1e-10);
+            }
+
+            // Find mid-band gain for normalization
+            const midF = Math.sqrt(fLow * fH);
+            const midBandGain = magnitude(Math.min(midF, fH / 10));
+
+            // Create graph
+            const graph = new Graph({
+                xMin: fMin,
+                xMax: fMax,
+                yMin: -40,
+                yMax: 10
+            });
+
+            // Generate response curve (normalized to mid-band = 0dB)
+            const normFactor = midBandGain > 0 ? midBandGain : 1;
+            const curve = generateResponseCurve(fMin, fMax, f => magnitude(f) / normFactor);
+            graph.addCurve(curve, { label: 'Response' });
+
+            // Add reference lines
+            graph.addHLine(-3, { color: '#f88', label: '-3 dB' });
+            graph.addVLine(fLow, { color: '#88f', label: 'fL' });
+            if (isFinite(fH) && fH > 0 && fH < fMax) {
+                graph.addVLine(fH, { color: '#8a8', label: 'fβ = ' + fmt(fH, 'Hz') });
+            }
+
+            return graph.toSVG();
+        }
+
         function calculate() {
             const vcc = parseFloat(document.getElementById('vcc').value);
             const vin = parseFloat(document.getElementById('vin').value);
@@ -356,7 +510,12 @@
             const fLow = parseFloat(document.getElementById('fLow').value);
             const rload = parseFloat(document.getElementById('rload').value);
             const ie = parseFloat(document.getElementById('ie').value) / 1000; // mA to A
-            const beta = parseFloat(document.getElementById('beta').value);
+
+            // Get transistor parameters from preset or custom
+            const transistor = getTransistorParams();
+            const beta = transistor.beta;
+            const fT = transistor.ft;
+            const vceSat = transistor.vceSat;
 
             // Set Ve at roughly half Vcc for maximum symmetric swing
             const ve = vcc / 2;
@@ -411,9 +570,9 @@
             const cinRounded = roundCap(cinCalc);
             const coutRounded = roundCap(coutCalc);
 
-            // Swing calculation
-            const swingDown = ve - 0.3;
-            const swingUp = (vcc - ve) - 0.3;
+            // Swing calculation (use vceSat from transistor params)
+            const swingDown = ve - vceSat;
+            const swingUp = (vcc - ve) - vceSat;
             const maxSwing = Math.min(swingDown, swingUp) * 2;
 
             // Warnings
@@ -483,7 +642,22 @@
                 vcc: vcc,
                 re: reRounded / 1000, // kΩ
                 ie: ie * 1000, // mA
-                ve: ve
+                ve: ve,
+                vceSat: vceSat
+            });
+
+            document.getElementById('freqResponse').innerHTML = drawFrequencyResponse({
+                zin: zin,
+                zout: zout,
+                zsource: zsource,
+                re: reRounded,
+                reIntrinsic: reIntrinsic,
+                rload: rload,
+                cin: cinRounded,
+                cout: coutRounded,
+                beta: beta,
+                fLow: fLow,
+                fT: fT
             });
         }
 
@@ -494,11 +668,14 @@
             document.getElementById('fLow').value = '20';
             document.getElementById('rload').value = '600';
             document.getElementById('ie').value = '5';
-            document.getElementById('beta').value = '100';
-            calculate();
+            document.getElementById('transistorPreset').value = 'ideal';
+            updateTransistorFields();
         }
 
-        window.onload = calculate;
+        window.onload = function() {
+            updateTransistorFields();
+            calculate();
+        };
     </script>
 </body>
 </html>
