@@ -674,8 +674,8 @@
             const fT = transistor.ft;
 
             // Intrinsic emitter resistances
-            const re1Intrinsic = 0.026 / ic1;
-            const re2Intrinsic = 0.026 / ie2;
+            const re1Intrinsic = V_T / ic1;
+            const re2Intrinsic = V_T / ie2;
 
             // Design constraint: Set Ve2 for good swing (around Vcc/3)
             const ve2 = vcc / 3;

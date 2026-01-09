@@ -10,6 +10,10 @@ const OPAMP_PRESETS = {
     ad8066: { name: 'AD8066', gbw: 145e6, slewRate: 180e6, noiseVoltage: 7e-9 }
 };
 
+// Thermal voltage at 25°C: V_T = kT/q ≈ 26mV
+// Used to calculate intrinsic emitter resistance: r'e = V_T / I_C
+const V_T = 0.026;
+
 // BJT transistor presets: beta (hFE), fT (Hz), Vce_sat (V)
 const BJT_PRESETS = {
     ideal: { name: 'Ideal', beta: 100000, ft: 1e12, vceSat: 0 },

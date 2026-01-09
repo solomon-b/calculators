@@ -630,7 +630,7 @@
 
             // Input requirements
             // Intrinsic emitter resistance
-            const reIntrinsic = 0.026 / ic;
+            const reIntrinsic = V_T / ic;
             // Input impedance: R1 || R2 || (beta * (re' + Re || Rload))
             const reParallelRload = (reRounded * rload) / (reRounded + rload);
             const zinBase = beta * (reIntrinsic + reParallelRload);
