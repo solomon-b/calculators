@@ -67,6 +67,62 @@
 
     <button onclick="clearAll()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm mb-8">Clear</button>
 
+    <!-- dB Gain Calculator -->
+    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">dB Gain Calculator</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Convert between dB gain and linear ratios for voltage and power.
+        </p>
+
+        <div class="grid gap-6 sm:grid-cols-2">
+            <!-- Voltage Gain -->
+            <div class="p-4 bg-white rounded-lg border">
+                <h3 class="font-medium text-gray-700 mb-3">Voltage Gain</h3>
+                <p class="text-xs text-gray-500 mb-3 font-mono">dB = 20 × log₁₀(V₂/V₁)</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Gain (dB)</label>
+                        <input type="number" id="voltageGainDb" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calcVoltageGain('db')">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Voltage Ratio (V₂/V₁)</label>
+                        <input type="number" id="voltageGainRatio" step="any" min="0" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calcVoltageGain('ratio')">
+                    </div>
+                    <div class="pt-2 border-t text-sm text-gray-600">
+                        <div class="flex justify-between">
+                            <span>Input → Output:</span>
+                            <span id="voltageGainDesc" class="font-mono">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Power Gain -->
+            <div class="p-4 bg-white rounded-lg border">
+                <h3 class="font-medium text-gray-700 mb-3">Power Gain</h3>
+                <p class="text-xs text-gray-500 mb-3 font-mono">dB = 10 × log₁₀(P₂/P₁)</p>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Gain (dB)</label>
+                        <input type="number" id="powerGainDb" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calcPowerGain('db')">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Power Ratio (P₂/P₁)</label>
+                        <input type="number" id="powerGainRatio" step="any" min="0" class="w-full px-2 py-1 border border-gray-300 rounded text-sm font-mono" oninput="calcPowerGain('ratio')">
+                    </div>
+                    <div class="pt-2 border-t text-sm text-gray-600">
+                        <div class="flex justify-between">
+                            <span>Input → Output:</span>
+                            <span id="powerGainDesc" class="font-mono">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="clearGain()" class="mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm">Clear</button>
+    </div>
+
     <!-- Audio Level Standards -->
     <div class="mt-8 p-4 bg-gray-50 rounded-lg">
         <h2 class="text-lg font-semibold text-gray-700 mb-3">Audio Line Level Standards</h2>
@@ -318,6 +374,91 @@
             document.getElementById('dbm').value = '';
             document.getElementById('voltageRatio').textContent = '—';
             document.getElementById('powerRatio').textContent = '—';
+        }
+
+        function calcVoltageGain(source) {
+            let db, ratio;
+
+            if (source === 'db') {
+                db = parseFloat(document.getElementById('voltageGainDb').value);
+                if (isNaN(db)) {
+                    document.getElementById('voltageGainRatio').value = '';
+                    document.getElementById('voltageGainDesc').textContent = '—';
+                    return;
+                }
+                ratio = Math.pow(10, db / 20);
+            } else {
+                ratio = parseFloat(document.getElementById('voltageGainRatio').value);
+                if (isNaN(ratio) || ratio <= 0) {
+                    document.getElementById('voltageGainDb').value = '';
+                    document.getElementById('voltageGainDesc').textContent = '—';
+                    return;
+                }
+                db = 20 * Math.log10(ratio);
+            }
+
+            if (source !== 'db') {
+                document.getElementById('voltageGainDb').value = db.toFixed(2);
+            }
+            if (source !== 'ratio') {
+                document.getElementById('voltageGainRatio').value = formatRatio(ratio);
+            }
+
+            // Description
+            let desc;
+            if (ratio >= 1) {
+                desc = `1V → ${formatRatio(ratio)}V`;
+            } else {
+                desc = `1V → ${formatRatio(ratio)}V (${formatRatio(1/ratio)}:1 attn)`;
+            }
+            document.getElementById('voltageGainDesc').textContent = desc;
+        }
+
+        function calcPowerGain(source) {
+            let db, ratio;
+
+            if (source === 'db') {
+                db = parseFloat(document.getElementById('powerGainDb').value);
+                if (isNaN(db)) {
+                    document.getElementById('powerGainRatio').value = '';
+                    document.getElementById('powerGainDesc').textContent = '—';
+                    return;
+                }
+                ratio = Math.pow(10, db / 10);
+            } else {
+                ratio = parseFloat(document.getElementById('powerGainRatio').value);
+                if (isNaN(ratio) || ratio <= 0) {
+                    document.getElementById('powerGainDb').value = '';
+                    document.getElementById('powerGainDesc').textContent = '—';
+                    return;
+                }
+                db = 10 * Math.log10(ratio);
+            }
+
+            if (source !== 'db') {
+                document.getElementById('powerGainDb').value = db.toFixed(2);
+            }
+            if (source !== 'ratio') {
+                document.getElementById('powerGainRatio').value = formatRatio(ratio);
+            }
+
+            // Description
+            let desc;
+            if (ratio >= 1) {
+                desc = `1W → ${formatRatio(ratio)}W`;
+            } else {
+                desc = `1W → ${formatRatio(ratio)}W (${formatRatio(1/ratio)}:1 attn)`;
+            }
+            document.getElementById('powerGainDesc').textContent = desc;
+        }
+
+        function clearGain() {
+            document.getElementById('voltageGainDb').value = '';
+            document.getElementById('voltageGainRatio').value = '';
+            document.getElementById('voltageGainDesc').textContent = '—';
+            document.getElementById('powerGainDb').value = '';
+            document.getElementById('powerGainRatio').value = '';
+            document.getElementById('powerGainDesc').textContent = '—';
         }
 
         // Initialize with pro line level
