@@ -193,7 +193,109 @@
         <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Output Waveforms</h2>
         <div id="waveforms" class="overflow-x-auto"></div>
 
-        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Class A Efficiency</h2>
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Design Notes</h2>
+        <details class="my-4" open>
+            <summary class="cursor-pointer text-primary font-bold">About this topology</summary>
+            <div class="mt-4 p-4 bg-gray-100 rounded text-sm">
+                <p>This calculator designs an <b>Emitter Follower</b> (common collector) Class A amplifier
+                with <b>capacitor-coupled output</b>. The emitter resistor (Re) sets the DC bias point,
+                while the load (speaker) is AC-coupled through Cout.</p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Why Capacitor-Coupled Output?</h3>
+                <table class="w-full text-sm">
+                    <tr class="border-b border-gray-300">
+                        <td class="py-2 pr-4 font-semibold text-green-700">Pros</td>
+                        <td class="py-2">
+                            <ul class="list-disc ml-4">
+                                <li>No DC current through the speaker (protects voice coil)</li>
+                                <li>Load impedance doesn't affect bias point</li>
+                                <li>Can drive any load impedance without redesigning bias</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 font-semibold text-red-700">Cons</td>
+                        <td class="py-2">
+                            <ul class="list-disc ml-4">
+                                <li>Large electrolytic capacitor required for bass response</li>
+                                <li>Low frequency roll-off (high-pass filter effect)</li>
+                                <li>Re wastes power even when driving the load</li>
+                            </ul>
+                        </td>
+                    </tr>
+                </table>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Direct-Coupled Alternative</h3>
+                <p>Without Cout, the load replaces Re entirely:</p>
+                <table class="w-full text-sm">
+                    <tr class="border-b border-gray-300">
+                        <td class="py-2 pr-4 font-semibold text-green-700">Pros</td>
+                        <td class="py-2">
+                            <ul class="list-disc ml-4">
+                                <li>No coupling capacitor needed</li>
+                                <li>Full bandwidth down to DC</li>
+                                <li>Slightly better efficiency (no Re power loss)</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 font-semibold text-red-700">Cons</td>
+                        <td class="py-2">
+                            <ul class="list-disc ml-4">
+                                <li>DC current flows through speaker (can damage it)</li>
+                                <li>Bias point depends on load impedance</li>
+                                <li>Changing speakers requires recalculating bias</li>
+                            </ul>
+                        </td>
+                    </tr>
+                </table>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Emitter Follower vs Common Emitter</h3>
+                <table class="w-full text-sm">
+                    <tr class="border-b border-gray-300">
+                        <th class="py-2 pr-4 text-left"></th>
+                        <th class="py-2 pr-4 text-left">Emitter Follower (this design)</th>
+                        <th class="py-2 text-left">Common Emitter</th>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Voltage gain</td>
+                        <td class="py-2 pr-4">≈ 1 (no gain)</td>
+                        <td class="py-2">High (10-100+)</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Current gain</td>
+                        <td class="py-2 pr-4">High (β)</td>
+                        <td class="py-2">High (β)</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Output impedance</td>
+                        <td class="py-2 pr-4">Low (good for driving speakers)</td>
+                        <td class="py-2">High (needs buffer for speakers)</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Input impedance</td>
+                        <td class="py-2 pr-4">High</td>
+                        <td class="py-2">Medium</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Distortion</td>
+                        <td class="py-2 pr-4">Very low (100% negative feedback)</td>
+                        <td class="py-2">Higher (less inherent feedback)</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 font-semibold">Typical use</td>
+                        <td class="py-2 pr-4">Output/buffer stage</td>
+                        <td class="py-2">Voltage amplifier/preamp stage</td>
+                    </tr>
+                </table>
+
+                <p class="mt-4"><b>Bottom line:</b> The emitter follower is ideal as an output stage because
+                of its low output impedance and low distortion, but it requires a preamp to provide voltage gain.
+                A complete amplifier often combines both: a common emitter stage for voltage gain feeding an
+                emitter follower for current gain and speaker drive.</p>
+            </div>
+        </details>
+
         <details class="my-4">
             <summary class="cursor-pointer text-primary font-bold">Why is Class A inefficient?</summary>
             <div class="mt-4 p-4 bg-gray-100 rounded text-sm">

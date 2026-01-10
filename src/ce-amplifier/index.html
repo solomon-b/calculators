@@ -970,79 +970,96 @@
             }
 
             const v = lastCalcValues;
+            const beta = v.beta;
 
-            // Build schematic for Falstad export
-            const sch = new Schematic(500, 350);
-            sch.setFalstadOptions({ vMax: v.vcc * 2 });
+            // Falstad circuit format - all coordinates on 16px grid
+            // Layout:
+            //   Vcc at top (y=48)
+            //   R1 from Vcc to base junction (x=176)
+            //   Rc from Vcc to collector (x=304)
+            //   Transistor body at x=256
+            //   R2 from base junction to ground
+            //   Re from emitter to ground
 
-            // Components - CE amplifier layout
-            // Vcc rail at top
-            sch.place('power', 'Vcc', 256, 48, { value: v.vcc });
+            const lines = [
+                // Header
+                `$ 1 0.000005 10.20027730826997 ${v.vcc * 2} 5 50 5e-11`,
 
-            // Bias resistors
-            sch.place('resistor-v', 'R1', 160, 88, { value: v.r1 });
-            sch.place('resistor-v', 'R2', 160, 176, { value: v.r2 });
-            sch.place('ground', 'GND1', 160, 224);
+                // Vcc power rail
+                `R 304 48 304 16 0 0 40 ${v.vcc} 0 0 0.5`,
 
-            // Collector resistor
-            sch.place('resistor-v', 'Rc', 256, 88, { value: v.rc });
+                // R1 (upper bias) - from Vcc rail to base junction
+                `r 176 48 176 144 0 ${v.r1}`,
 
-            // NPN transistor
-            sch.place('npn', 'Q1', 208, 128, { beta: v.beta });
+                // R2 (lower bias) - from base junction to ground
+                `r 176 144 176 240 0 ${v.r2}`,
 
-            // Emitter resistor
-            sch.place('resistor-v', 'Re', 233, 184, { value: v.re });
-            sch.place('ground', 'GND2', 233, 232);
+                // Ground under R2
+                `g 176 240 176 256 0`,
 
-            // Input AC source and coupling cap
-            sch.place('ac-source-h', 'Vin', 48, 128, { value: v.vin, freq: 1000 });
-            sch.place('capacitor-h', 'Cin', 104, 128, { value: v.cin });
+                // Wire from Vcc to R1
+                `w 304 48 176 48 0`,
 
-            // Output coupling cap
-            sch.place('capacitor-h', 'Cout', 312, 112, { value: v.cout });
+                // Rc (collector resistor) - from Vcc to collector
+                `r 304 48 304 128 0 ${v.rc}`,
 
-            // Output probe
-            sch.place('probe', 'Out', 360, 112);
+                // NPN Transistor - base at (224, 144), body center at (256, 144)
+                // Falstad: t x1 y1 x2 y2 0 1 <vbe> <vbc> <beta>
+                // Collector at (256, 128), Emitter at (256, 160)
+                `t 224 144 256 144 0 1 -0.6 0.5 ${beta}`,
 
-            // Wiring
-            // Vcc to R1 and Rc
-            sch.wire('Vcc.a', 'R1.a');
-            sch.wire('Vcc.a', 'Rc.a');
+                // Wire from base junction to transistor base
+                `w 176 144 224 144 0`,
 
-            // Bias network
-            sch.wire('R1.b', 'R2.a');
-            sch.wire('R2.b', 'GND1.a');
+                // Wire from Rc to collector
+                `w 304 128 256 128 0`,
 
-            // Base connection
-            sch.wire('Vin.b', 'Cin.a');
-            sch.wire('Cin.b', 'R1.b');
-            sch.wire('R1.b', 'Q1.base');
+                // Re (emitter resistor) - from emitter to ground
+                `r 256 160 256 240 0 ${v.re}`,
 
-            // Collector to Rc and output
-            sch.wire('Rc.b', 'Q1.collector');
-            sch.wire('Rc.b', 'Cout.a');
-            sch.wire('Cout.b', 'Out.a');
+                // Ground under Re
+                `g 256 240 256 256 0`,
 
-            // Emitter to Re
-            sch.wire('Q1.emitter', 'Re.a');
-            sch.wire('Re.b', 'GND2.a');
+                // Input AC source
+                `R 80 144 48 144 0 1 1000 ${v.vin} 0 0 0.5`,
+
+                // Cin (input coupling cap)
+                `c 80 144 128 144 0 ${v.cin} 0`,
+
+                // Wire from Cin to base junction
+                `w 128 144 176 144 0`,
+
+                // Cout (output coupling cap) - from collector node to output
+                `c 304 128 352 128 0 ${v.cout} 0`,
+
+                // Output probe
+                `p 352 128 400 128 1 0 0`,
+            ];
 
             // Add bypass capacitor if used
             if (v.ce > 0) {
-                sch.place('capacitor-v', 'Ce', 280, 184, { value: v.ce });
-                sch.wire('Q1.emitter', 'Ce.a');
-                sch.wire('Ce.b', 'Re.b');
+                // Ce in parallel with Re
+                lines.push(`c 304 160 304 240 0 ${v.ce} 0`);
+                // Wire from emitter to Ce top
+                lines.push(`w 256 160 304 160 0`);
+                // Wire from Ce bottom to Re bottom
+                lines.push(`w 304 240 256 240 0`);
             }
 
             // Add load resistor if specified
             if (v.rload && isFinite(v.rload)) {
-                sch.place('resistor-v', 'Rload', 360, 160, { value: v.rload });
-                sch.place('ground', 'GND3', 360, 208);
-                sch.wire('Out.a', 'Rload.a');
-                sch.wire('Rload.b', 'GND3.a');
+                lines.push(`r 400 128 400 208 0 ${v.rload}`);
+                lines.push(`g 400 208 400 224 0`);
+                lines.push(`w 352 128 400 128 0`);
             }
 
-            sch.openInFalstad();
+            // Add scope on output
+            lines.push(`o 20 8 0 4099 5 0.05 0 2 20 3`);
+
+            const circuitText = lines.join('\n');
+            const compressed = LZString.compressToEncodedURIComponent(circuitText);
+            const url = `https://www.falstad.com/circuit/circuitjs.html?ctz=${compressed}`;
+            window.open(url, '_blank');
         }
 
         window.onload = function() {

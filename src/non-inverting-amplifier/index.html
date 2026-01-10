@@ -158,48 +158,7 @@
                 alert('Please calculate first');
                 return;
             }
-            const v = lastCalcValues;
-
-            // Build schematic for Falstad export
-            const sch = new Schematic(400, 280);
-            sch.setFalstadOptions({ vMax: v.vcc * 2 });
-
-            // Op-amp with flip (+ on top for non-inverting input)
-            sch.place('opamp', 'U1', 224, 128, { vcc: v.vcc, flip: true });
-
-            // R1: to ground (from inverting input)
-            sch.place('resistor-v', 'R1', 184, 192, { value: v.r1 });
-            sch.place('ground', 'GND', 184, 240);
-
-            // Rf: feedback resistor
-            sch.place('resistor-h', 'Rf', 224, 64, { value: v.rf });
-
-            // AC input source
-            sch.place('ac-source-h', 'Vin', 48, 108, { value: v.vinPeak, freq: 1000 });
-
-            // Output probe
-            sch.place('probe', 'Out', 312, 128);
-
-            // Wiring
-            // Input to non-inverting input
-            sch.wire('Vin.b', 'U1.plus');
-
-            // Inverting input down to R1
-            sch.wire('U1.minus', { x: 184, y: 148 });
-            sch.wire({ x: 184, y: 148 }, 'R1.a');
-            sch.wire('R1.b', 'GND.a');
-
-            // Inverting input up to Rf
-            sch.wire({ x: 184, y: 148 }, { x: 184, y: 64 });
-            sch.wire({ x: 184, y: 64 }, 'Rf.a');
-
-            // Rf to output
-            sch.wire('Rf.b', { x: 280, y: 64 });
-            sch.wire({ x: 280, y: 64 }, 'U1.out');
-
-            // Output
-            sch.wire('U1.out', 'Out.a');
-
+            const sch = buildFalstadSchematic(lastCalcValues);
             sch.openInFalstad();
         }
 
@@ -309,6 +268,77 @@
             sch.label('±' + maxSwing.toFixed(1) + 'V', 300, 260);
 
             return sch.toSVG();
+        }
+
+        function buildFalstadSchematic(v) {
+            const signalFreq = parseFloat(document.getElementById('freq').value);
+            const sch = new Schematic(420, 280);
+            sch.setFalstadOptions({ vMax: v.vcc * 2 });
+
+            // Clean layout matching Falstad convention:
+            // Op-amp with flip (plus on top), feedback network BELOW
+            // Op-amp at y=80 with flip: plus at y=64, minus at y=96, output at y=80
+            const opY = 80;
+            const plusY = opY - 16;   // 64 (plus on top when flipped)
+            const minusY = opY + 16;  // 96
+            const outY = opY;         // 80
+            const juncY = 144;        // feedback junction below op-amp
+
+            // AC input source (aligned with plus input)
+            sch.place('ac-source-h', 'Vin', 50, plusY, {
+                value: v.vinPeak,
+                freq: signalFreq,
+                label: 'Vin'
+            });
+
+            // Op-amp
+            sch.place('opamp', 'U1', 230, opY, { vcc: v.vcc, flip: true });
+
+            // Rf horizontal at junction level
+            sch.place('resistor-h', 'Rf', 280, juncY, {
+                value: v.rf,
+                label: fmt(v.rf, 'Ω')
+            });
+
+            // R1 vertical from junction down to ground
+            sch.place('resistor-v', 'R1', 190, juncY + 50, {
+                value: v.r1,
+                label: fmt(v.r1, 'Ω')
+            });
+
+            // Ground below R1
+            sch.place('ground', 'GND', 190, juncY + 100);
+
+            // Output probe
+            sch.place('probe', 'Out', 400, outY);
+
+            // Wiring: Input to plus
+            sch.wire('Vin.b', 'U1.plus');
+
+            // Minus input down to junction
+            sch.wire('U1.minus', { x: 190, y: minusY });
+            sch.wire({ x: 190, y: minusY }, { x: 190, y: juncY });
+            sch.node(190, juncY);
+
+            // Junction to Rf (horizontal)
+            sch.wire({ x: 190, y: juncY }, 'Rf.a');
+
+            // Junction to R1 (down to ground)
+            sch.wire({ x: 190, y: juncY }, 'R1.a');
+            sch.wire('R1.b', 'GND.a');
+
+            // Rf to output junction
+            sch.wire('Rf.b', { x: 340, y: juncY });
+            sch.wire({ x: 340, y: juncY }, { x: 340, y: outY });
+            sch.node(340, outY);
+
+            // Op-amp output to output junction
+            sch.wire('U1.out', { x: 340, y: outY });
+
+            // Output junction to probe
+            sch.wire({ x: 340, y: outY }, 'Out.a');
+
+            return sch;
         }
 
         function drawFrequencyResponse(actualGain, opamp, signalFreq) {

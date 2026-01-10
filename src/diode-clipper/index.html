@@ -218,107 +218,149 @@
             const sch = new Schematic(500, 300);
             sch.setFalstadOptions({ vMax: v.vcc * 2 });
 
-            // AC input source
-            sch.place('ac-source-h', 'Vin', 48, 128, { value: v.vinPeak, freq: 1000 });
-
             if (v.topology === 'feedback') {
                 // Feedback clipping topology: Op-amp with diodes in feedback
-                sch.place('opamp', 'U1', 250, 128, { vcc: v.vcc });
+                // Falstad op-amp geometry: inputs at ±16px from center
+                const opY = 128;
+                const minusY = opY - 16;  // 112
+                const plusY = opY + 16;   // 144
+                const outY = opY;         // 128
 
-                // Input resistor
-                sch.place('resistor-h', 'Rin', 128, 108, { value: v.rin });
+                // AC input source (aligned with minus input)
+                sch.place('ac-source-h', 'Vin', 48, minusY, { value: v.vinPeak, freq: 1000 });
+
+                sch.place('opamp', 'U1', 250, opY, { vcc: v.vcc });
+
+                // Input resistor (aligned with minus input)
+                sch.place('resistor-h', 'Rin', 128, minusY, { value: v.rin });
 
                 // Feedback resistor
                 sch.place('resistor-h', 'Rf', 250, 48, { value: v.rf });
 
                 // Diodes in feedback (antiparallel) - D1 and D2
-                // D1: positive clipping (anode on left, cathode on right)
-                sch.place('diode-h', 'D1', 250, 72, { vf: v.vfPos, led: v.diodePosLed });
-                // D2: negative clipping (flipped - cathode on left, anode on right)
-                sch.place('diode-h', 'D2', 250, 96, { vf: v.vfNeg, led: v.diodeNegLed, flip: true });
+                sch.place('diode-h', 'D1', 250, 68, { vf: v.vfPos, led: v.diodePosLed });
+                sch.place('diode-h', 'D2', 250, 88, { vf: v.vfNeg, led: v.diodeNegLed, flip: true });
 
                 // Ground for non-inverting input
-                sch.place('ground', 'GND', 170, 172);
+                sch.place('ground', 'GND', 170, plusY + 32);
 
-                // Output probe
-                sch.place('probe', 'Out', 368, 128);
+                // Output probe (aligned with output)
+                sch.place('probe', 'Out', 368, outY);
 
                 // Wiring
                 sch.wire('Vin.b', 'Rin.a');
-                sch.wire('Rin.b', 'U1.minus');
+                sch.wire('Rin.b', { x: 170, y: minusY });
+                sch.node(170, minusY);
+                sch.wire({ x: 170, y: minusY }, 'U1.minus');
 
-                // Feedback network junction
-                sch.wire('Rin.b', { x: 170, y: 48 });
+                // Left side vertical bus (from minus input up through diodes to Rf)
+                // Segmented at each connection point: minusY -> 88 -> 68 -> 48
+                sch.wire({ x: 170, y: minusY }, { x: 170, y: 88 });
+                sch.node(170, 88);
+                sch.wire({ x: 170, y: 88 }, { x: 170, y: 68 });
+                sch.node(170, 68);
+                sch.wire({ x: 170, y: 68 }, { x: 170, y: 48 });
+
+                // Connect components on left side
                 sch.wire({ x: 170, y: 48 }, 'Rf.a');
-                sch.wire('Rf.b', { x: 321, y: 48 });
-                sch.wire({ x: 321, y: 48 }, 'U1.out');
+                sch.wire({ x: 170, y: 68 }, 'D1.a');
+                sch.wire({ x: 170, y: 88 }, 'D2.k');
 
-                // Diodes parallel to Rf
-                sch.wire({ x: 170, y: 72 }, 'D1.a');
-                sch.wire('D1.k', { x: 321, y: 72 });
-                sch.wire({ x: 321, y: 96 }, 'D2.k');
-                sch.wire('D2.a', { x: 170, y: 96 });
+                // Rf horizontal
+                sch.wire('Rf.b', { x: 321, y: 48 });
+
+                // Right side vertical bus (from Rf down through diodes to output)
+                // Segmented at each connection point: 48 -> 68 -> 88 -> outY
+                sch.wire({ x: 321, y: 48 }, { x: 321, y: 68 });
+                sch.node(321, 68);
+                sch.wire({ x: 321, y: 68 }, { x: 321, y: 88 });
+                sch.node(321, 88);
+                sch.wire({ x: 321, y: 88 }, { x: 321, y: outY });
+                sch.node(321, outY);
+
+                // Connect components on right side
+                sch.wire('D1.k', { x: 321, y: 68 });
+                sch.wire('D2.a', { x: 321, y: 88 });
 
                 // Non-inverting input to ground
-                sch.wire('U1.plus', 'GND.a');
+                sch.wire('U1.plus', { x: 170, y: plusY });
+                sch.wire({ x: 170, y: plusY }, 'GND.a');
 
                 // Output
-                sch.wire('U1.out', 'Out.a');
+                sch.wire('U1.out', { x: 321, y: outY });
+                sch.wire({ x: 321, y: outY }, 'Out.a');
             } else {
                 // Shunt clipping topology: buffer -> series R -> diodes to ground
-                // Use inverting amp with unity gain as buffer approximation
-                sch.place('opamp', 'U1', 160, 128, { vcc: v.vcc });
+                // Falstad op-amp geometry: inputs at ±16px from center
+                const opY = 128;
+                const minusY = opY - 16;  // 112
+                const plusY = opY + 16;   // 144
+                const outY = opY;         // 128
 
-                // Feedback resistor for unity gain buffer (Rf = Rin)
-                sch.place('resistor-h', 'Rin', 96, 108, { value: 10000 });
-                sch.place('resistor-h', 'Rf', 160, 48, { value: v.preGain * 10000 }); // Gain = Rf/Rin
+                // AC input source (aligned with minus input)
+                sch.place('ac-source-h', 'Vin', 32, minusY, { value: v.vinPeak, freq: 1000 });
+
+                sch.place('opamp', 'U1', 160, opY, { vcc: v.vcc });
+
+                // Input resistor (aligned with minus input)
+                sch.place('resistor-h', 'Rin', 96, minusY, { value: 10000 });
+                sch.place('resistor-h', 'Rf', 160, 48, { value: v.preGain * 10000 });
 
                 // Ground for + input
-                sch.place('ground', 'GND1', 100, 172);
+                sch.place('ground', 'GND1', 100, plusY + 32);
 
-                // Series resistor
-                sch.place('resistor-h', 'Rs', 280, 128, { value: v.rseries });
+                // Series resistor (aligned with output)
+                sch.place('resistor-h', 'Rs', 280, outY, { value: v.rseries });
 
                 // Diodes to ground (antiparallel)
-                sch.place('diode-v', 'D1', 350, 168, { vf: v.vfPos, led: v.diodePosLed });
-                sch.place('diode-v', 'D2', 390, 168, { vf: v.vfNeg, led: v.diodeNegLed, flip: true });
+                sch.place('diode-v', 'D1', 350, outY + 40, { vf: v.vfPos, led: v.diodePosLed });
+                sch.place('diode-v', 'D2', 390, outY + 40, { vf: v.vfNeg, led: v.diodeNegLed, flip: true });
 
                 // Ground
-                sch.place('ground', 'GND2', 370, 216);
+                sch.place('ground', 'GND2', 370, outY + 88);
 
                 // Output probe
-                sch.place('probe', 'Out', 430, 128);
+                sch.place('probe', 'Out', 430, outY);
 
                 // Wiring - input stage
                 sch.wire('Vin.b', 'Rin.a');
-                sch.wire('Rin.b', 'U1.minus');
+                sch.wire('Rin.b', { x: 121, y: minusY });
+                sch.node(121, minusY);
+                sch.wire({ x: 121, y: minusY }, 'U1.minus');
 
                 // Feedback
-                sch.wire('Rin.b', { x: 121, y: 48 });
+                sch.wire({ x: 121, y: minusY }, { x: 121, y: 48 });
                 sch.wire({ x: 121, y: 48 }, 'Rf.a');
                 sch.wire('Rf.b', { x: 231, y: 48 });
-                sch.wire({ x: 231, y: 48 }, 'U1.out');
+                sch.wire({ x: 231, y: 48 }, { x: 231, y: outY });
+                sch.node(231, outY);
 
                 // Non-inverting input to ground
-                sch.wire('U1.plus', 'GND1.a');
+                sch.wire('U1.plus', { x: 100, y: plusY });
+                sch.wire({ x: 100, y: plusY }, 'GND1.a');
 
                 // Op-amp to series resistor
-                sch.wire('U1.out', 'Rs.a');
+                sch.wire('U1.out', { x: 231, y: outY });
+                sch.wire({ x: 231, y: outY }, 'Rs.a');
 
                 // Series resistor to diode node
-                sch.wire('Rs.b', { x: 350, y: 128 });
+                sch.wire('Rs.b', { x: 350, y: outY });
+                sch.node(350, outY);
 
                 // Diodes to ground
-                sch.wire({ x: 350, y: 128 }, 'D1.a');
-                sch.wire('D1.k', { x: 350, y: 200 });
-                sch.wire({ x: 390, y: 128 }, 'D2.k');
-                sch.wire('D2.a', { x: 390, y: 200 });
-                sch.wire({ x: 350, y: 128 }, { x: 390, y: 128 });
-                sch.wire({ x: 350, y: 200 }, { x: 390, y: 200 });
-                sch.wire({ x: 370, y: 200 }, 'GND2.a');
+                sch.wire({ x: 350, y: outY }, 'D1.a');
+                sch.wire('D1.k', { x: 350, y: outY + 72 });
+                sch.wire({ x: 350, y: outY }, { x: 390, y: outY });
+                sch.wire({ x: 390, y: outY }, 'D2.k');
+                sch.wire('D2.a', { x: 390, y: outY + 72 });
+                // Connect diode cathodes/anodes to ground junction (split into two wires)
+                sch.wire({ x: 350, y: outY + 72 }, { x: 370, y: outY + 72 });
+                sch.wire({ x: 370, y: outY + 72 }, { x: 390, y: outY + 72 });
+                sch.node(370, outY + 72);
+                sch.wire({ x: 370, y: outY + 72 }, 'GND2.a');
 
                 // Output
-                sch.wire({ x: 390, y: 128 }, 'Out.a');
+                sch.wire({ x: 390, y: outY }, 'Out.a');
             }
 
             sch.openInFalstad();

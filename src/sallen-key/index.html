@@ -132,83 +132,122 @@
             const stage = v.stages[0]; // Export first stage only
             const isLowpass = stage.type === 'lowpass';
 
-            // Build schematic for Falstad export
-            const sch = new Schematic(450, 300);
+            const sch = new Schematic(550, 300);
             sch.setFalstadOptions({ vMax: v.vcc * 2 });
 
-            // AC input source
-            sch.place('ac-source-h', 'Vin', 32, 128, { value: 1, freq: stage.fcActual });
+            // Falstad op-amp geometry: inputs at ±16px from center
+            // Op-amp at (368, 160) with flip (plus on top)
+            const opY = 160;
+            const plusY = opY - 16;   // 144
+            const minusY = opY + 16;  // 176
+            const outY = opY;         // 160
 
+            // Signal path Y (aligned with plus input)
+            const sigY = plusY;       // 144
+            const fbY = 64;           // feedback capacitor level
+
+            // AC source
+            sch.place('ac-source-h', 'Vin', 50, sigY, {
+                value: 1,
+                freq: stage.fcActual,
+                label: 'Vin'
+            });
+
+            // Z1 and Z2 (series elements in signal path)
             if (isLowpass) {
-                // Lowpass: R1 -> R2 -> opamp+, C3 feedback, C4 to ground
-                sch.place('resistor-h', 'Z1', 96, 128, { value: stage.R });
-                sch.place('resistor-h', 'Z2', 176, 128, { value: stage.R });
-                sch.place('capacitor-h', 'Z3', 200, 64, { value: stage.C });
-                sch.place('capacitor-v', 'Z4', 224, 176, { value: stage.C });
+                sch.place('resistor-h', 'Z1', 120, sigY, { value: stage.R, label: fmt(stage.R, 'Ω') });
+                sch.place('resistor-h', 'Z2', 220, sigY, { value: stage.R, label: fmt(stage.R, 'Ω') });
             } else {
-                // Highpass: C1 -> C2 -> opamp+, R3 feedback, R4 to ground
-                sch.place('capacitor-h', 'Z1', 96, 128, { value: stage.C });
-                sch.place('capacitor-h', 'Z2', 176, 128, { value: stage.C });
-                sch.place('resistor-h', 'Z3', 200, 64, { value: stage.R });
-                sch.place('resistor-v', 'Z4', 224, 176, { value: stage.R });
+                sch.place('capacitor-h', 'Z1', 120, sigY, { value: stage.C, label: fmt(stage.C, 'F') });
+                sch.place('capacitor-h', 'Z2', 220, sigY, { value: stage.C, label: fmt(stage.C, 'F') });
             }
 
-            // Ground for Z4
-            sch.place('ground', 'GND1', 224, 224);
-
-            // Op-amp with flip (+ on top)
-            sch.place('opamp', 'U1', 288, 108, { vcc: v.vcc, flip: true });
-
-            // Gain network: Ra to ground, Rb feedback (if K > 1)
-            sch.place('resistor-v', 'Ra', 248, 200, { value: stage.Ra });
-            sch.place('ground', 'GND2', 248, 248);
-
-            if (stage.Rb > 0) {
-                sch.place('resistor-h', 'Rb', 320, 176, { value: stage.Rb });
+            // Z3 (feedback from Vx junction to output)
+            if (isLowpass) {
+                sch.place('capacitor-h', 'Z3', 280, fbY, { value: stage.C, label: fmt(stage.C, 'F') });
+            } else {
+                sch.place('resistor-h', 'Z3', 280, fbY, { value: stage.R, label: fmt(stage.R, 'Ω') });
             }
+
+            // Z4 (shunt to ground from node before plus input)
+            if (isLowpass) {
+                sch.place('capacitor-v', 'Z4', 280, sigY + 50, { value: stage.C, label: fmt(stage.C, 'F') });
+            } else {
+                sch.place('resistor-v', 'Z4', 280, sigY + 50, { value: stage.R, label: fmt(stage.R, 'Ω') });
+            }
+
+            // Op-amp
+            sch.place('opamp', 'U1', 368, opY, { vcc: v.vcc, flip: true });
+
+            // Junction point below minus input for T-junction
+            const juncY = minusY + 40;
+
+            // Ra (shunt to ground, below junction)
+            sch.place('resistor-v', 'Ra', 328, juncY + 50, { value: stage.Ra, label: fmt(stage.Ra, 'Ω') });
+
+            // Ground symbols
+            sch.place('ground', 'GND1', 280, sigY + 100);
+            sch.place('ground', 'GND2', 328, juncY + 100);
 
             // Output probe
-            sch.place('probe', 'Out', 368, 108);
+            sch.place('probe', 'Out', 480, outY);
 
             // Wiring
             // Input to Z1
             sch.wire('Vin.b', 'Z1.a');
 
-            // Z1 -> Vx node -> Z2
-            sch.wire('Z1.b', { x: 144, y: 128 });
-            sch.wire({ x: 144, y: 128 }, 'Z2.a');
+            // Z1 to Vx junction
+            sch.wire('Z1.b', { x: 160, y: sigY });
+            sch.node(160, sigY);
 
-            // Z2 -> V+ node
-            sch.wire('Z2.b', { x: 224, y: 128 });
-            sch.wire({ x: 224, y: 128 }, 'U1.plus');
+            // Vx junction up to Z3
+            sch.wire({ x: 160, y: sigY }, { x: 160, y: fbY });
+            sch.wire({ x: 160, y: fbY }, 'Z3.a');
 
-            // Z4 shunt to ground
-            sch.wire({ x: 224, y: 128 }, 'Z4.a');
+            // Vx junction to Z2
+            sch.wire({ x: 160, y: sigY }, 'Z2.a');
+
+            // Z2 to node before plus input
+            sch.wire('Z2.b', { x: 280, y: sigY });
+            sch.node(280, sigY);
+
+            // Node to Z4 (down to ground)
+            sch.wire({ x: 280, y: sigY }, 'Z4.a');
             sch.wire('Z4.b', 'GND1.a');
 
-            // Z3 feedback: Vx up to Z3, Z3 across to output
-            sch.wire({ x: 144, y: 128 }, { x: 144, y: 64 });
-            sch.wire({ x: 144, y: 64 }, 'Z3.a');
-            sch.wire('Z3.b', { x: 352, y: 64 });
-            sch.wire({ x: 352, y: 64 }, 'U1.out');
+            // Node to plus input
+            sch.wire({ x: 280, y: sigY }, 'U1.plus');
 
-            // Gain network wiring
-            sch.wire('U1.minus', { x: 248, y: 128 });
-            sch.wire({ x: 248, y: 128 }, { x: 248, y: 164 });
-            sch.wire({ x: 248, y: 164 }, 'Ra.a');
+            // Z3 to output junction
+            sch.wire('Z3.b', { x: 440, y: fbY });
+            sch.wire({ x: 440, y: fbY }, { x: 440, y: outY });
+            sch.node(440, outY);
+
+            // Op-amp output to output junction
+            sch.wire('U1.out', { x: 440, y: outY });
+
+            // Output junction to probe
+            sch.wire({ x: 440, y: outY }, 'Out.a');
+
+            // Minus input down to T-junction
+            sch.wire('U1.minus', { x: 328, y: juncY });
+            sch.node(328, juncY);
+
+            // Ra from junction down to ground
+            sch.wire({ x: 328, y: juncY }, 'Ra.a');
             sch.wire('Ra.b', 'GND2.a');
 
+            // Feedback from junction to output (Rb if gain > 1, or direct wire for unity)
             if (stage.Rb > 0) {
-                sch.wire({ x: 248, y: 164 }, 'Rb.a');
-                sch.wire('Rb.b', { x: 352, y: 176 });
-                sch.wire({ x: 352, y: 108 }, { x: 352, y: 176 });
+                sch.place('resistor-h', 'Rb', 384, juncY, { value: stage.Rb, label: fmt(stage.Rb, 'Ω') });
+                sch.wire({ x: 328, y: juncY }, 'Rb.a');
+                sch.wire('Rb.b', { x: 440, y: juncY });
+                sch.wire({ x: 440, y: juncY }, { x: 440, y: outY });
             } else {
-                sch.wire({ x: 248, y: 164 }, { x: 352, y: 164 });
-                sch.wire({ x: 352, y: 108 }, { x: 352, y: 164 });
+                // Unity gain: direct feedback from junction to output
+                sch.wire({ x: 328, y: juncY }, { x: 440, y: juncY });
+                sch.wire({ x: 440, y: juncY }, { x: 440, y: outY });
             }
-
-            // Output
-            sch.wire('U1.out', 'Out.a');
 
             sch.openInFalstad();
         }

@@ -55,6 +55,19 @@ class Schematic {
         return { x: comp.x + pin.x, y: comp.y + pin.y };
     }
 
+    // Get Falstad-adjusted pin position (some components have different geometry in Falstad)
+    falstadPin(ref) {
+        if (typeof ref === 'object') return ref; // Already coordinates
+        const [compId, pinName] = ref.split('.');
+        const comp = this.components.get(compId);
+        if (!comp) throw new Error(`Component not found: ${compId}`);
+        // Use Falstad-specific pins if available, otherwise fall back to regular pins
+        const pins = comp.falstadPins || comp.pins;
+        const pin = pins[pinName];
+        if (!pin) throw new Error(`Pin not found: ${pinName} on ${compId}`);
+        return { x: comp.x + pin.x, y: comp.y + pin.y };
+    }
+
     // Generate SVG string
     toSVG() {
         let svg = `<svg width="${this.width}" height="${this.height}" style="font-family: monospace; font-size: 12px;">`;
@@ -107,10 +120,10 @@ class Schematic {
             }
         }
 
-        // Export wires
+        // Export wires (use falstadPin for adjusted coordinates)
         for (const wire of this.wires) {
-            const from = this.pin(wire.from);
-            const to = this.pin(wire.to);
+            const from = this.falstadPin(wire.from);
+            const to = this.falstadPin(wire.to);
             const route = wire.options.route || 'direct';
 
             if (route === 'direct') {
@@ -201,9 +214,18 @@ class OpAmp extends Component {
     constructor(id, x, y, options = {}) {
         super(id, x, y, options);
         const flip = options.flip || false; // flip swaps + and - inputs
+        // SVG pins use ±20px offset for visual appearance
         this.pins = {
             plus:  { x: -40, y: flip ? -20 : 20 },
             minus: { x: -40, y: flip ? 20 : -20 },
+            out:   { x: 40, y: 0 },
+            vpos:  { x: 0, y: -30 },
+            vneg:  { x: 0, y: 30 },
+        };
+        // Falstad uses ±16px offset for op-amp inputs
+        this.falstadPins = {
+            plus:  { x: -40, y: flip ? -16 : 16 },
+            minus: { x: -40, y: flip ? 16 : -16 },
             out:   { x: 40, y: 0 },
             vpos:  { x: 0, y: -30 },
             vneg:  { x: 0, y: 30 },
@@ -228,14 +250,14 @@ class OpAmp extends Component {
     toFalstad() {
         const { x, y, options, flip } = this;
         const vcc = options.vcc || 12;
-        // Falstad op-amp: a x1 y1 x2 y2 modelIndex maxOut minOut gbw 0 0 openLoopGain
-        // x1,y1 is positive input side, x2,y2 is output
-        // The negative input is calculated internally by Falstad
-        const plusY = y + (flip ? -20 : 20);
+        // Falstad op-amp format: a x1 y1 x2 y2 flags maxOut minOut gbw
+        // x1,y1 is input side center, x2,y2 is output
+        // Falstad places inputs at y1 ± 16px, but our SVG uses ±20px offset
+        const inputX = x - 40;
         const outX = x + 40;
-        const outY = y;
-        // Model 9 is ideal op-amp
-        return `a ${x - 40} ${plusY} ${outX} ${outY} 9 ${vcc} ${-vcc} 1000000 0 0 100000`;
+        const flags = flip ? 1 : 0;  // bit 0 swaps + and - inputs
+        // gbw=0 means ideal op-amp (infinite bandwidth)
+        return `a ${inputX} ${y} ${outX} ${y} ${flags} ${vcc} ${-vcc} 0`;
     }
 }
 
@@ -660,7 +682,8 @@ class ACSourceH extends Component {
         const amplitude = options.value || 1;
         const freq = options.freq || 1000;
         // AC voltage source: R x1 y1 x2 y2 0 1 <freq> <amplitude> 0 0 0.5
-        return `R ${x - 25} ${y} ${x + 25} ${y} 0 1 ${freq} ${amplitude} 0 0 0.5`;
+        // First coordinate is "hot" terminal (right pin), second is ground (left pin)
+        return `R ${x + 25} ${y} ${x - 25} ${y} 0 1 ${freq} ${amplitude} 0 0 0.5`;
     }
 }
 
