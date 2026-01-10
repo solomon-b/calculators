@@ -162,6 +162,7 @@
                     I<sub>E</sub> chosen based on load requirements<br>
                     Rule of thumb: I<sub>E</sub> > 10 &#215; (V<sub>out</sub> / R<sub>load</sub>)
                 </code>
+                <div id="calc-step1" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 2: Calculate Emitter Resistor</h3>
                 <p>Set Ve at roughly half of Vcc for maximum swing:</p>
@@ -169,11 +170,13 @@
                     V<sub>E</sub> &#8776; V<sub>CC</sub> / 2<br>
                     R<sub>E</sub> = V<sub>E</sub> / I<sub>E</sub>
                 </code>
+                <div id="calc-step2" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 3: Calculate Intrinsic Emitter Resistance</h3>
                 <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     r<sub>e</sub>' = 26mV / I<sub>E</sub> = 0.026 / I<sub>E</sub>
                 </code>
+                <div id="calc-step3" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 4: Calculate Bias Resistors</h3>
                 <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
@@ -184,6 +187,7 @@
                     R<sub>2</sub> = (V<sub>B</sub> / V<sub>CC</sub>) &#215; R<sub>total</sub><br>
                     R<sub>1</sub> = R<sub>total</sub> - R<sub>2</sub>
                 </code>
+                <div id="calc-step4" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 5: Calculate Voltage Gain</h3>
                 <p>Gain is slightly less than 1:</p>
@@ -191,24 +195,28 @@
                     A<sub>v</sub> = (R<sub>E</sub> &#8741; R<sub>load</sub>) / (r<sub>e</sub>' + R<sub>E</sub> &#8741; R<sub>load</sub>)<br>
                     A<sub>v</sub> &#8776; 0.95 to 0.99 typically
                 </code>
+                <div id="calc-step5" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 6: Calculate Input Impedance</h3>
                 <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     Z<sub>in(base)</sub> = &#946; &#215; (r<sub>e</sub>' + R<sub>E</sub> &#8741; R<sub>load</sub>)<br>
                     Z<sub>in</sub> = R<sub>1</sub> &#8741; R<sub>2</sub> &#8741; Z<sub>in(base)</sub>
                 </code>
+                <div id="calc-step6" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 7: Calculate Output Impedance</h3>
                 <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     Z<sub>out</sub> = (r<sub>e</sub>' + R<sub>source</sub>/&#946;) &#8741; R<sub>E</sub><br>
                     For low R<sub>source</sub>: Z<sub>out</sub> &#8776; r<sub>e</sub>' &#8741; R<sub>E</sub> &#8776; r<sub>e</sub>'
                 </code>
+                <div id="calc-step7" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 8: Calculate Coupling Capacitors</h3>
                 <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
                     C<sub>in</sub> = 1 / (2&#960; &#215; f<sub>low</sub> &#215; Z<sub>in</sub>)<br>
                     C<sub>out</sub> = 1 / (2&#960; &#215; f<sub>low</sub> &#215; R<sub>load</sub>)
                 </code>
+                <div id="calc-step8" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Key Characteristics</h3>
                 <ul class="list-disc ml-5 space-y-1">
@@ -232,6 +240,61 @@
 
         function storeCalcValues(vals) {
             lastCalcValues = vals;
+        }
+
+        function updateDesignSteps(params) {
+            const { vcc, ve, vb, ie, re, reRounded, reIntrinsic, rload, vin,
+                    beta, ib, idivider, rtotal, r1, r2, r1Rounded, r2Rounded,
+                    reParallelRload, gain, zinBase, zin, zsource, zoutBase, zout,
+                    fLow, fcorner, cinCalc, cinRounded, coutCalc, coutRounded,
+                    inputAtten, effectiveGain } = params;
+
+            // Step 1: Choose Emitter Current
+            const iLoadPeak = vin * gain / rload;
+            const ieMin = 10 * iLoadPeak;
+            const ieCheck = ie > ieMin ? '✓ OK' : '✗ May need more current';
+            document.getElementById('calc-step1').innerHTML =
+                `I<sub>E</sub> = <b>${(ie*1000).toFixed(2)} mA</b> (chosen)<br>` +
+                `Rule check: I<sub>E</sub> > 10 × (${(vin*1000).toFixed(0)}mV × ${gain.toFixed(3)} / ${fmtLong(rload, 'Ω')}) = ${(ieMin*1000).toFixed(2)}mA? <b>${ieCheck}</b>`;
+
+            // Step 2: Emitter Resistor
+            document.getElementById('calc-step2').innerHTML =
+                `V<sub>E</sub> = ${vcc}V / 2 = <b>${ve.toFixed(2)}V</b><br>` +
+                `R<sub>E</sub> = ${ve.toFixed(2)}V / ${(ie*1000).toFixed(2)}mA = ${re.toFixed(1)}Ω → <b>${fmtLong(reRounded, 'Ω')}</b> (E24)`;
+
+            // Step 3: Intrinsic Emitter Resistance
+            document.getElementById('calc-step3').innerHTML =
+                `r<sub>e</sub>' = 26mV / ${(ie*1000).toFixed(2)}mA = <b>${reIntrinsic.toFixed(2)}Ω</b>`;
+
+            // Step 4: Bias Resistors
+            document.getElementById('calc-step4').innerHTML =
+                `V<sub>B</sub> = ${ve.toFixed(2)}V + 0.7V = <b>${vb.toFixed(2)}V</b><br>` +
+                `I<sub>B</sub> = ${(ie*1000).toFixed(2)}mA / ${beta} = ${(ib*1e6).toFixed(2)}µA<br>` +
+                `I<sub>divider</sub> = 10 × ${(ib*1e6).toFixed(2)}µA = ${(idivider*1e6).toFixed(1)}µA<br>` +
+                `R<sub>total</sub> = ${vcc}V / ${(idivider*1e6).toFixed(1)}µA = ${(rtotal/1000).toFixed(1)}kΩ<br>` +
+                `R<sub>2</sub> = (${vb.toFixed(2)}V / ${vcc}V) × ${(rtotal/1000).toFixed(1)}kΩ = ${(r2/1000).toFixed(2)}kΩ → <b>${fmtLong(r2Rounded, 'Ω')}</b><br>` +
+                `R<sub>1</sub> = ${(rtotal/1000).toFixed(1)}kΩ - ${(r2/1000).toFixed(2)}kΩ = ${(r1/1000).toFixed(2)}kΩ → <b>${fmtLong(r1Rounded, 'Ω')}</b>`;
+
+            // Step 5: Voltage Gain
+            document.getElementById('calc-step5').innerHTML =
+                `R<sub>E</sub> ∥ R<sub>load</sub> = ${fmtLong(reRounded, 'Ω')} ∥ ${fmtLong(rload, 'Ω')} = ${fmtLong(reParallelRload, 'Ω')}<br>` +
+                `A<sub>v</sub> = ${fmtLong(reParallelRload, 'Ω')} / (${reIntrinsic.toFixed(2)}Ω + ${fmtLong(reParallelRload, 'Ω')}) = <b>${gain.toFixed(4)}</b> (${(gain*100).toFixed(1)}%)`;
+
+            // Step 6: Input Impedance
+            document.getElementById('calc-step6').innerHTML =
+                `Z<sub>in(base)</sub> = ${beta} × (${reIntrinsic.toFixed(2)}Ω + ${fmtLong(reParallelRload, 'Ω')}) = ${fmtLong(zinBase, 'Ω')}<br>` +
+                `Z<sub>in</sub> = ${fmtLong(r1Rounded, 'Ω')} ∥ ${fmtLong(r2Rounded, 'Ω')} ∥ ${fmtLong(zinBase, 'Ω')} = <b>${fmtLong(zin, 'Ω')}</b>`;
+
+            // Step 7: Output Impedance
+            document.getElementById('calc-step7').innerHTML =
+                `Z<sub>out(base)</sub> = ${reIntrinsic.toFixed(2)}Ω + ${fmtLong(zsource, 'Ω')}/${beta} = ${reIntrinsic.toFixed(2)}Ω + ${(zsource/beta).toFixed(2)}Ω = ${fmtLong(zoutBase, 'Ω')}<br>` +
+                `Z<sub>out</sub> = ${fmtLong(zoutBase, 'Ω')} ∥ ${fmtLong(reRounded, 'Ω')} = <b>${fmtLong(zout, 'Ω')}</b>`;
+
+            // Step 8: Coupling Capacitors
+            document.getElementById('calc-step8').innerHTML =
+                `<i>Using f<sub>corner</sub> = f<sub>low</sub>/10 = ${fcorner.toFixed(1)}Hz for margin:</i><br>` +
+                `C<sub>in</sub> = 1 / (2π × ${fcorner.toFixed(1)}Hz × ${fmtLong(zin, 'Ω')}) = ${fmtLong(cinCalc, 'F')} → <b>${fmtLong(cinRounded, 'F')}</b><br>` +
+                `C<sub>out</sub> = 1 / (2π × ${fcorner.toFixed(1)}Hz × ${fmtLong(rload, 'Ω')}) = ${fmtLong(coutCalc, 'F')} → <b>${fmtLong(coutRounded, 'F')}</b>`;
         }
 
         function openInFalstad() {
@@ -767,6 +830,15 @@
                 cout: coutRounded,
                 rload: rload,
                 beta: beta
+            });
+
+            // Update step-by-step design calculations
+            updateDesignSteps({
+                vcc, ve, vb, ie, re, reRounded, reIntrinsic, rload, vin,
+                beta, ib, idivider, rtotal, r1, r2, r1Rounded, r2Rounded,
+                reParallelRload, gain, zinBase, zin, zsource, zoutBase, zout,
+                fLow, fcorner, cinCalc, cinRounded, coutCalc, coutRounded,
+                inputAtten, effectiveGain
             });
         }
 
