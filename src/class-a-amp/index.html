@@ -49,8 +49,8 @@
                 </td>
             </tr>
             <tr>
-                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Target RMS output power into the load.">Target output power:</td>
-                <td class="py-2"><input type="number" id="pout" value="1" step="0.1" min="0.1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> W</td>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="DC bias current through the transistor. Higher = more output power but more heat.">Quiescent current (Iq):</td>
+                <td class="py-2"><input type="number" id="iq" value="1.5" step="0.1" min="0.1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> A</td>
             </tr>
             <tr>
                 <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Low frequency -3dB point. Sets output capacitor size.">Low frequency (-3dB):</td>
@@ -108,7 +108,7 @@
             </tr>
             <tr>
                 <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Heatsink thermal resistance. ~60°C/W = no heatsink, ~10°C/W = small heatsink, ~1°C/W = large heatsink.">Heatsink (&#952;sa):</td>
-                <td class="py-2"><input type="number" id="thetaSAinput" value="10" step="1" min="0.5" max="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> °C/W</td>
+                <td class="py-2"><input type="number" id="thetaSAinput" value="3" step="1" min="0.5" max="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> °C/W</td>
             </tr>
         </table>
     </div>
@@ -163,7 +163,7 @@
         <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Power Analysis</h2>
         <div class="overflow-x-auto">
             <table class="w-full sm:w-auto">
-                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum achievable output power before clipping">Max output power:</td><td id="poutMax" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum achievable output power before clipping. RMS is continuous power, Peak is instantaneous maximum.">Max output power:</td><td id="poutMax" class="py-2 text-right font-mono"></td></tr>
                 <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="RMS output voltage at full power">Output voltage (RMS):</td><td id="voutRms" class="py-2 text-right font-mono"></td></tr>
                 <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="RMS output current at full power">Output current (RMS):</td><td id="ioutRms" class="py-2 text-right font-mono"></td></tr>
                 <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Power drawn from supply (constant in Class A)">DC input power:</td><td id="pdc" class="py-2 text-right font-mono"></td></tr>
@@ -586,7 +586,7 @@
         function calculate() {
             const vcc = parseFloat(document.getElementById('vcc').value);
             const rload = getLoadResistance();
-            const poutTarget = parseFloat(document.getElementById('pout').value);
+            const iq = parseFloat(document.getElementById('iq').value);
             const fLow = parseFloat(document.getElementById('fLow').value);
             const tAmbient = parseFloat(document.getElementById('tAmbient').value);
             const tJunctionMax = parseFloat(document.getElementById('tJunction').value);
@@ -601,20 +601,7 @@
             let warnings = [];
             let notes = [];
 
-            // Calculate required voltage swing for target power
-            // Pout = Vrms² / Rload = (Vpeak/√2)² / Rload = Vpeak² / (2*Rload)
-            const vPeakRequired = Math.sqrt(2 * poutTarget * rload);
-
-            // For Class A emitter follower:
-            // Ve = Vcc/2 gives maximum symmetric swing
-            // Quiescent Ic must be >= peak output current
-            const iPeakRequired = vPeakRequired / rload;
-
-            // For symmetric clipping on AC load line:
-            // AC load = Re || Rload
-            // Max negative swing (before Ic cutoff) = Ic * (Re || Rload)
-            // Max positive swing (before Vce_sat) = Vce - Vce_sat
-
+            // Emitter voltage at Vcc/2 for maximum symmetric swing
             const ve = vcc / 2;
             const vSwingSat = ve - vceSat;
             const thetaSAinput = parseFloat(document.getElementById('thetaSAinput').value);
@@ -630,19 +617,16 @@
             // Also limited by transistor's absolute max
             const pdLimit = Math.min(pdMax, pdThermalLimit);
 
-            // Find maximum Ic within limits
-            // Pd_idle = Vce * Ic = Ve * Ic (at Vcc/2 bias)
-            const icThermal = pdLimit / ve;
-
-            // Use max current within limits - this gives maximum output power
-            const ic = Math.min(icMax, icThermal);
+            // Use user-specified quiescent current directly
+            const ic = iq;
             const re = ve / ic;
             const zac = (re * rload) / (re + rload);
             const vSwingCutoff = ic * zac;
             const vSwingMax = Math.min(vSwingCutoff, vSwingSat);
 
             // Maximum output power (before clipping)
-            const poutMax = (vSwingMax * vSwingMax) / (2 * rload);
+            const poutMax = (vSwingMax * vSwingMax) / (2 * rload);  // RMS power
+            const poutPeak = vSwingMax * vSwingMax / rload;  // Peak instantaneous power
 
             // DC power from supply
             const pdc = vcc * ic;
@@ -685,24 +669,26 @@
 
             // Warnings
             if (ic > icMax) {
-                warnings.push(`<b>Current exceeds transistor rating:</b> Required Ic (${(ic*1000).toFixed(0)}mA) > Ic max (${icMax*1000}mA). Choose a higher-rated transistor.`);
+                warnings.push(`<b>Current exceeds transistor rating:</b> Iq (${(ic*1000).toFixed(0)}mA) > Ic max (${icMax*1000}mA). Reduce Iq or choose a higher-rated transistor.`);
             }
 
             if (!isIdeal) {
                 if (pdIdle > pdMax) {
-                    warnings.push(`<b>Transistor power limit exceeded:</b> Dissipation (${pdIdle.toFixed(1)}W) > Pd max (${pdMax}W). This exceeds absolute maximum rating.`);
+                    warnings.push(`<b>Transistor power limit exceeded:</b> Dissipation (${pdIdle.toFixed(1)}W) > Pd max (${pdMax}W). Reduce Iq/Vcc or choose a transistor with higher power rating.`);
+                } else if (pdIdle > pdThermalLimit) {
+                    const thetaNeeded = (tJunctionMax - tAmbient) / pdIdle - thetaJC - thetaCS;
+                    warnings.push(`<b>Heatsink insufficient:</b> Dissipation (${pdIdle.toFixed(1)}W) exceeds thermal limit (${pdThermalLimit.toFixed(1)}W). Need heatsink with θsa ≤ ${Math.max(0, thetaNeeded).toFixed(1)} °C/W, or reduce Iq/Vcc.`);
                 } else if (tjIdle > tJunctionMax) {
-                    warnings.push(`<b>Junction temperature exceeded:</b> Estimated ${tjIdle.toFixed(0)}°C > max ${tJunctionMax}°C. Use a better heatsink (lower θsa) or reduce power.`);
+                    warnings.push(`<b>Junction temperature exceeded:</b> Estimated ${tjIdle.toFixed(0)}°C > max ${tJunctionMax}°C. Use a better heatsink (lower θsa) or reduce Iq/Vcc.`);
                 }
             }
 
-            if (vPeakRequired > vSwingMax) {
-                const limitType = vSwingCutoff < vSwingSat ? 'cutoff (negative swing)' : 'saturation (positive swing)';
-                warnings.push(`<b>Clipping:</b> Required swing (${vPeakRequired.toFixed(1)}V) exceeds available (${vSwingMax.toFixed(1)}V) - limited by ${limitType}. Max power: ${poutMax.toFixed(2)}W. Increase Vcc for more power.`);
-            }
-
-            if (vcc < 2 * vPeakRequired + 2 * vceSat + 2) {
-                notes.push(`Supply voltage is marginal for ${poutTarget}W output.`);
+            // Note about swing limits
+            const limitType = vSwingCutoff < vSwingSat ? 'cutoff' : 'saturation';
+            if (vSwingCutoff < vSwingSat * 0.8) {
+                notes.push(`Output swing is limited by ${limitType}. For balanced swing, try Iq ≈ ${(ve / rload).toFixed(2)}A.`);
+            } else if (vSwingSat < vSwingCutoff * 0.8) {
+                notes.push(`Output swing is limited by ${limitType}. Consider higher Vcc for more headroom.`);
             }
 
             // Display
@@ -748,7 +734,7 @@
             document.getElementById('zin').textContent = fmtLong(zin, 'Ω');
 
             // Power analysis
-            document.getElementById('poutMax').textContent = poutMax.toFixed(2) + ' W';
+            document.getElementById('poutMax').textContent = poutMax.toFixed(2) + ' W RMS (' + poutPeak.toFixed(2) + ' W peak)';
             document.getElementById('voutRms').textContent = (vSwingMax / Math.sqrt(2)).toFixed(2) + ' V RMS';
             document.getElementById('ioutRms').textContent = ((vSwingMax / rload) / Math.sqrt(2) * 1000).toFixed(0) + ' mA RMS';
             document.getElementById('pdc').textContent = pdc.toFixed(2) + ' W';
@@ -780,7 +766,7 @@
                 ic: fmt(ic * 1000, 'mA'),
                 ve: fmt(ve, 'V'),
                 vce: fmt(vcc - ve, 'V'),
-                pout: poutMax.toFixed(2) + 'W',
+                pout: poutMax.toFixed(2) + 'W RMS',
                 pdiss: pdIdle.toFixed(1) + 'W',
                 eff: efficiency.toFixed(0) + '%'
             });
@@ -800,7 +786,7 @@
                 vSwing: vSwingMax,
                 ic: ic,
                 rload: rload,
-                isClipping: vPeakRequired > vSwingMax
+                isClipping: false
             });
 
             // Store values for Falstad export
@@ -813,7 +799,7 @@
                 cout: coutRounded,
                 rload: rload,
                 beta: beta,
-                vinPeak: vinPeak
+                vinPeak: vinPeak  // Input voltage needed for full output swing
             });
         }
 
@@ -821,12 +807,12 @@
             document.getElementById('vcc').value = '24';
             document.getElementById('rload').value = '8';
             document.getElementById('rloadCustom').classList.add('hidden');
-            document.getElementById('pout').value = '1';
+            document.getElementById('iq').value = '1.5';
             document.getElementById('fLow').value = '20';
             document.getElementById('transistorPreset').value = 'tip31';
             document.getElementById('tAmbient').value = '25';
             document.getElementById('tJunction').value = '150';
-            document.getElementById('thetaSAinput').value = '10';
+            document.getElementById('thetaSAinput').value = '3';
             updateTransistorFields();
         }
 
