@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class B Push-Pull Power Amplifier Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+    </style>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Class B Push-Pull Power Amplifier</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Design a complementary push-pull Class B power amplifier. Each transistor conducts for
+        half the cycle, achieving high efficiency (~78.5% max) at the cost of crossover distortion.
+        This topology is common in audio power amplifiers (often biased slightly into Class AB).
+    </p>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Power Requirements</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="DC supply voltage (single supply). The output can swing from ~0V to ~Vcc.">Supply voltage (Vcc):</td>
+                <td class="py-2"><input type="number" id="vcc" value="24" step="1" min="5" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Speaker or load impedance. Common values: 4, 8, 16 ohms.">Load impedance:</td>
+                <td class="py-2">
+                    <select id="rload" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="4">4 &#8486;</option>
+                        <option value="8" selected>8 &#8486;</option>
+                        <option value="16">16 &#8486;</option>
+                        <option value="32">32 &#8486;</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <input type="number" id="rloadCustom" value="8" min="1" class="w-16 px-2 py-1 border border-gray-300 rounded text-sm hidden"> &#8486;
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Low frequency -3dB point. Sets output capacitor size.">Low frequency (-3dB):</td>
+                <td class="py-2"><input type="number" id="fLow" value="20" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> Hz</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Bootstrap capacitor maintains base drive at signal peaks for better rail-to-rail swing.">Bootstrap circuit:</td>
+                <td class="py-2"><label class="inline-flex items-center"><input type="checkbox" id="useBootstrap" class="mr-2"> Enable bootstrap capacitor</label></td>
+            </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Transistor Selection</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Select complementary power transistor pair. NPN and PNP should be matched.">Transistor pair:</td>
+                <td class="py-2">
+                    <select id="transistorPreset" onchange="updateTransistorFields()" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option value="ideal">Ideal (no limits)</option>
+                        <option value="bd139_140">BD139/BD140 (1.5A, 80V)</option>
+                        <option value="tip31_32" selected>TIP31/TIP32 (3A, 40V)</option>
+                        <option value="tip41_42">TIP41/TIP42 (6A, 40V)</option>
+                        <option value="2n3055_2955">2N3055/MJ2955 (15A, 60V)</option>
+                        <option value="mje3055_2955">MJE3055/MJE2955 (10A, 60V)</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Current gain at expected collector current.">&#946; (hFE):</td>
+                <td class="py-2"><input type="text" id="beta" value="50" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled></td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum collector current rating.">Ic max:</td>
+                <td class="py-2"><input type="text" id="icMax" value="3" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> A</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum power dissipation per transistor (at 25C case temp).">Pd max (each):</td>
+                <td class="py-2"><input type="text" id="pdMax" value="40" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> W</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Thermal resistance from junction to case.">&#952;jc:</td>
+                <td class="py-2"><input type="text" id="thetaJC" value="3.1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm bg-gray-100 text-gray-500" disabled> °C/W</td>
+            </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Thermal Environment</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum expected ambient temperature.">Ambient temperature:</td>
+                <td class="py-2"><input type="number" id="tAmbient" value="25" step="5" min="0" max="50" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> °C</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum junction temperature (typically 150C for silicon).">Max junction temp:</td>
+                <td class="py-2"><input type="number" id="tJunction" value="150" step="10" min="100" max="200" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> °C</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Heatsink thermal resistance per transistor. Both transistors can share a heatsink (use combined value / 2).">Heatsink (&#952;sa) each:</td>
+                <td class="py-2"><input type="number" id="thetaSAinput" value="3" step="1" min="0.5" max="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> °C/W</td>
+            </tr>
+        </table>
+    </div>
+
+    <p class="text-sm text-gray-400 mt-2">Hover over labels for explanations.</p>
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+        <button onclick="openInFalstad()" class="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm">Open in Falstad</button>
+    </div>
+
+    <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
+
+    <div id="results">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Component Values</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Input coupling capacitor">Cin:</td><td id="cin" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Output coupling capacitor (blocks DC from speaker)">Cout:</td><td id="cout" class="py-2 text-right font-mono"></td></tr>
+                <tr id="cbootRow" class="hidden"><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Bootstrap capacitor (maintains base drive at signal peaks)">Cboot:</td><td id="cboot" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Base resistor (drives both transistor bases)">Rb:</td><td id="rb" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Operating Point</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4">Quiescent current (Iq):</td><td id="iq" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Output DC bias (no signal):</td><td id="vout_dc" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum output voltage swing (peak, before clipping)">Max output swing:</td><td id="vswing" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Peak collector current at maximum output">Peak collector current:</td><td id="icPeak" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Input Requirements</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            This is an emitter follower configuration (voltage gain ~1). The input signal must be approximately
+            equal to the desired output voltage. A preamp or driver stage is typically needed.
+        </p>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Peak input voltage needed for full output power">Input voltage (peak):</td><td id="vinPeak" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="RMS input voltage needed for full output power">Input voltage (RMS):</td><td id="vinRms" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Input impedance seen by the driver stage">Input impedance:</td><td id="zin" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Power Analysis</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum achievable output power before clipping. RMS is continuous power, Peak is instantaneous maximum.">Max output power:</td><td id="poutMax" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="RMS output voltage at full power">Output voltage (RMS):</td><td id="voutRms" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="RMS output current at full power">Output current (RMS):</td><td id="ioutRms" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Power drawn from supply at maximum output">DC input power (full signal):</td><td id="pdcFull" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Efficiency = Pout / Pdc at maximum output">Efficiency at full power:</td><td id="efficiency" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Thermal Analysis</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            Class B dissipates maximum power at about 63% of full output, not at idle or full power.
+            This is the critical design point for thermal management.
+        </p>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum power each transistor can dissipate with your heatsink">Thermal limit (each):</td><td id="pdThermalLimit" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Power dissipated at idle (nearly zero for true Class B)">Dissipation (idle):</td><td id="pdIdle" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Power dissipated per transistor at full output">Dissipation (full power):</td><td id="pdFull" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Maximum power dissipated per transistor (at ~63% output)">Dissipation (worst case):</td><td id="pdWorst" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4 cursor-help border-b border-dotted border-gray-400" title="Estimated junction temperature at worst case dissipation">Junction temp (worst):</td><td id="tjWorst" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <p id="note" class="text-amber-600 mt-4"></p>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Power vs Output</h2>
+        <p class="text-sm text-gray-600 mb-3 max-w-xl">
+            Shows output power, DC input power, and transistor dissipation vs output level.
+            Note how dissipation peaks at ~63% output - this is the worst-case thermal condition.
+        </p>
+        <div id="powerGraph" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Output Waveforms</h2>
+        <div id="waveforms" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Design Notes</h2>
+        <details class="my-4" open>
+            <summary class="cursor-pointer text-primary font-bold">About Class B operation</summary>
+            <div class="mt-4 p-4 bg-gray-100 rounded text-sm">
+                <p>In pure <b>Class B</b>, each transistor conducts for exactly half the cycle (180°).
+                When the input signal is positive, Q1 (NPN) conducts and sources current to the load.
+                When the input is negative, Q2 (PNP) conducts and sinks current from the load.</p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Crossover Distortion</h3>
+                <p>The main disadvantage of Class B is <b>crossover distortion</b>. Near zero crossing,
+                neither transistor is conducting because the input must exceed ~0.7V (Vbe) to turn on
+                each transistor. This creates a "dead zone" in the output waveform.</p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Class AB Improvement</h3>
+                <p>In practice, most power amplifiers use <b>Class AB</b> - adding a small bias current
+                (via diodes or a Vbe multiplier) so both transistors are slightly on at idle. This
+                eliminates crossover distortion while maintaining most of Class B's efficiency.</p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Power Dissipation</h3>
+                <p>Unlike Class A where dissipation is maximum at idle, Class B dissipation:</p>
+                <ul class="list-disc ml-4 mt-2">
+                    <li><b>Zero at idle</b> (no quiescent current)</li>
+                    <li><b>Increases with signal</b> up to about 63% of max output</li>
+                    <li><b>Decreases toward full power</b> (more power delivered to load)</li>
+                </ul>
+                <p class="mt-2">Maximum dissipation per transistor: <code>Pd_max = Vcc² / (π² × Rload)</code></p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Efficiency</h3>
+                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
+                    η = (π/4) × (Vout_peak / Vcc) ≈ 78.5% at maximum output
+                </code>
+            </div>
+        </details>
+
+        <details class="my-4">
+            <summary class="cursor-pointer text-primary font-bold">Class A vs Class B comparison</summary>
+            <div class="mt-4 p-4 bg-gray-100 rounded text-sm">
+                <table class="w-full text-sm">
+                    <tr class="border-b border-gray-300">
+                        <th class="py-2 pr-4 text-left"></th>
+                        <th class="py-2 pr-4 text-left">Class A</th>
+                        <th class="py-2 text-left">Class B (this design)</th>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Conduction angle</td>
+                        <td class="py-2 pr-4">360° (full cycle)</td>
+                        <td class="py-2">180° (half cycle each)</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Max efficiency</td>
+                        <td class="py-2 pr-4">25% (resistive load)</td>
+                        <td class="py-2">78.5%</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Quiescent current</td>
+                        <td class="py-2 pr-4">High (always conducting)</td>
+                        <td class="py-2">Zero (ideally)</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Worst-case heat</td>
+                        <td class="py-2 pr-4">At idle (no signal)</td>
+                        <td class="py-2">At ~63% output</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Distortion</td>
+                        <td class="py-2 pr-4">Very low</td>
+                        <td class="py-2">Crossover distortion</td>
+                    </tr>
+                    <tr class="border-b border-gray-200">
+                        <td class="py-2 pr-4 font-semibold">Transistor count</td>
+                        <td class="py-2 pr-4">1 (single-ended)</td>
+                        <td class="py-2">2 (complementary pair)</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 font-semibold">Typical use</td>
+                        <td class="py-2 pr-4">Hi-fi, low power</td>
+                        <td class="py-2">Higher power, PA systems</td>
+                    </tr>
+                </table>
+            </div>
+        </details>
+
+        <details class="my-4">
+            <summary class="cursor-pointer text-primary font-bold">Bootstrap circuit explained</summary>
+            <div class="mt-4 p-4 bg-gray-100 rounded text-sm">
+                <p>The <b>bootstrap capacitor</b> (Cboot) is a key component in this design that solves
+                a problem specific to emitter-follower output stages.</p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">The Problem</h3>
+                <p>When the output swings high (toward Vcc), the NPN transistor's base needs to be driven
+                even higher than the output. But if Rb is connected to a fixed Vcc rail, the available
+                base drive decreases as output rises - limiting the positive swing.</p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">The Solution</h3>
+                <p>The bootstrap capacitor connects from the output back to the junction of Rb and the
+                input. As the output rises, Cboot "lifts" the bottom of Rb along with it. This keeps
+                the voltage across Rb constant, maintaining base drive current even at high output levels.</p>
+
+                <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Result</h3>
+                <p>With bootstrapping, the output can swing nearly rail-to-rail (limited only by Vce_sat),
+                maximizing output power capability.</p>
+            </div>
+        </details>
+    </div>
+
+    <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+    <script>
+        // Power transistor pair presets (NPN/PNP complementary)
+        const POWER_BJT_PRESETS = {
+            'ideal': { name: 'Ideal', beta: 100, icMax: 100, pdMax: 1000, vceSat: 0, thetaJC: 0.01 },
+            'bd139_140': { name: 'BD139/BD140', beta: 40, icMax: 1.5, pdMax: 12.5, vceSat: 0.5, thetaJC: 10 },
+            'tip31_32': { name: 'TIP31/TIP32', beta: 50, icMax: 3, pdMax: 40, vceSat: 0.7, thetaJC: 3.1 },
+            'tip41_42': { name: 'TIP41/TIP42', beta: 40, icMax: 6, pdMax: 65, vceSat: 1.0, thetaJC: 1.9 },
+            '2n3055_2955': { name: '2N3055/MJ2955', beta: 50, icMax: 15, pdMax: 115, vceSat: 1.1, thetaJC: 1.5 },
+            'mje3055_2955': { name: 'MJE3055/MJE2955', beta: 50, icMax: 10, pdMax: 75, vceSat: 1.0, thetaJC: 1.7 }
+        };
+
+        // Handle custom load resistance
+        document.getElementById('rload').addEventListener('change', function() {
+            const customInput = document.getElementById('rloadCustom');
+            if (this.value === 'custom') {
+                customInput.classList.remove('hidden');
+            } else {
+                customInput.classList.add('hidden');
+            }
+        });
+
+        function updateTransistorFields() {
+            const preset = document.getElementById('transistorPreset').value;
+            const isCustom = preset === 'custom';
+            const isIdeal = preset === 'ideal';
+
+            const fields = ['beta', 'icMax', 'pdMax', 'thetaJC'];
+            fields.forEach(f => {
+                const el = document.getElementById(f);
+                el.disabled = !isCustom;
+                el.classList.toggle('bg-gray-100', !isCustom);
+                el.classList.toggle('text-gray-500', !isCustom);
+            });
+
+            // Disable thermal environment inputs for ideal transistor
+            const thermalFields = ['tAmbient', 'tJunction', 'thetaSAinput'];
+            thermalFields.forEach(f => {
+                const el = document.getElementById(f);
+                el.disabled = isIdeal;
+                el.classList.toggle('bg-gray-100', isIdeal);
+                el.classList.toggle('text-gray-500', isIdeal);
+            });
+
+            if (preset !== 'custom' && POWER_BJT_PRESETS[preset]) {
+                const p = POWER_BJT_PRESETS[preset];
+                document.getElementById('beta').value = p.beta;
+                document.getElementById('icMax').value = p.icMax;
+                document.getElementById('pdMax').value = p.pdMax;
+                document.getElementById('thetaJC').value = p.thetaJC;
+            }
+        }
+
+        function getTransistorParams() {
+            const preset = document.getElementById('transistorPreset').value;
+
+            if (preset !== 'custom' && POWER_BJT_PRESETS[preset]) {
+                return POWER_BJT_PRESETS[preset];
+            }
+
+            return {
+                name: 'Custom',
+                beta: parseFloat(document.getElementById('beta').value),
+                icMax: parseFloat(document.getElementById('icMax').value),
+                pdMax: parseFloat(document.getElementById('pdMax').value),
+                vceSat: 0.7,
+                thetaJC: parseFloat(document.getElementById('thetaJC').value)
+            };
+        }
+
+        function getLoadResistance() {
+            const select = document.getElementById('rload');
+            if (select.value === 'custom') {
+                return parseFloat(document.getElementById('rloadCustom').value);
+            }
+            return parseFloat(select.value);
+        }
+
+        function drawSchematic(vals) {
+            const sch = new Schematic(440, 380);
+            const useBootstrap = vals.useBootstrap;
+
+            // Key coordinates
+            const npnX = 240, npnY = 100;
+            const pnpX = 240, pnpY = 220;
+            const outX = 265, outY = 160;
+
+            // NPN transistor (top)
+            sch.place('npn', 'Q1', npnX, npnY);
+
+            // Vcc rail
+            sch.label('Vcc', outX, 25, { anchor: 'middle' });
+            sch.wire({ x: outX, y: 30 }, { x: outX, y: npnY - 25 }); // To Q1 collector
+
+            // Output node (between emitters)
+            sch.wire({ x: outX, y: npnY + 25 }, { x: outX, y: outY });
+            sch.node(outX, outY);
+
+            // Base resistor - single Rb driving both bases
+            sch.place('resistor-h', 'Rb', 160, outY, { label: vals.rb });
+
+            // Connect Rb to bases
+            sch.wire('Rb.b', { x: 200, y: outY });
+            sch.wire({ x: 200, y: outY }, { x: 200, y: npnY });
+            sch.wire({ x: 200, y: npnY }, { x: npnX - 15, y: npnY });
+            sch.node(200, outY);
+            sch.wire({ x: 200, y: outY }, { x: 200, y: pnpY });
+            sch.wire({ x: 200, y: pnpY }, { x: pnpX - 15, y: pnpY });
+
+            // Input coupling capacitor
+            sch.place('capacitor-h', 'Cin', 95, outY, { label: vals.cin });
+            sch.wire('Cin.b', 'Rb.a');
+            sch.label('Vin', 45, outY + 4);
+            sch.wire({ x: 60, y: outY }, { x: 91, y: outY });
+
+            // Bootstrap capacitor (optional) - connects output back to Rb/Cin junction
+            if (useBootstrap) {
+                // Place bootstrap cap above the main signal path
+                sch.place('capacitor-h', 'Cboot', 160, outY - 50, { label: vals.cboot });
+                // Wire from Rb/Cin junction up to Cboot
+                sch.wire({ x: 120, y: outY }, { x: 120, y: outY - 50 });
+                sch.node(120, outY);
+                sch.wire({ x: 120, y: outY - 50 }, { x: 156, y: outY - 50 });
+                // Wire from Cboot to output node - with jump over vertical base wire at x=200
+                sch.wire({ x: 164, y: outY - 50 }, { x: 194, y: outY - 50 }); // to just before crossing
+                // Jump arc will be added in SVG post-processing
+                sch.wire({ x: 206, y: outY - 50 }, { x: 220, y: outY - 50 }); // a little right after hop
+                sch.wire({ x: 220, y: outY - 50 }, { x: 220, y: outY });      // down
+                sch.wire({ x: 220, y: outY }, { x: outX, y: outY });          // right to output node
+            }
+
+            // Output coupling capacitor
+            sch.place('capacitor-h', 'Cout', 310, outY, { label: vals.cout });
+            sch.wire({ x: outX, y: outY }, { x: 306, y: outY });
+            sch.wire({ x: 314, y: outY }, { x: 370, y: outY });
+
+            // Load resistor
+            sch.place('resistor-v', 'Rload', 370, outY + 60, { label: vals.rload, dashed: true });
+            sch.node(370, outY);
+            sch.wire({ x: 370, y: outY }, { x: 370, y: outY + 35 });
+            sch.label('Out', 385, outY + 4);
+
+            // Ground for load
+            sch.place('ground', 'GND1', 370, outY + 105, { dashed: true });
+            sch.wire('Rload.b', 'GND1.a', { dashed: true });
+
+            // PNP collector to output node
+            sch.wire({ x: outX, y: outY }, { x: outX, y: pnpY - 25 });
+
+            // Ground for PNP emitter
+            sch.place('ground', 'GND2', outX, pnpY + 70);
+            sch.wire({ x: outX, y: pnpY + 25 }, { x: outX, y: pnpY + 55 });
+            sch.wire({ x: outX, y: pnpY + 55 }, 'GND2.a');
+
+            // Info labels
+            sch.label('Operating Point:', 10, 320, { bold: true });
+            sch.label('Vout(DC) = ' + vals.voutDc, 10, 338);
+            sch.label('Swing = ' + vals.swing, 10, 356);
+
+            sch.label('Power:', 220, 320, { bold: true });
+            sch.label('Pout = ' + vals.pout, 220, 338);
+            sch.label('Eff = ' + vals.eff, 220, 356);
+
+            // Generate base SVG
+            let svg = sch.toSVG();
+
+            // Insert PNP transistor manually (arrow points inward)
+            let extraSvg = `
+                <line x1="${pnpX}" y1="${pnpY-20}" x2="${pnpX}" y2="${pnpY+20}" stroke="black" stroke-width="3"/>
+                <line x1="${pnpX-15}" y1="${pnpY}" x2="${pnpX}" y2="${pnpY}" stroke="black" stroke-width="2"/>
+                <line x1="${pnpX}" y1="${pnpY-10}" x2="${pnpX+25}" y2="${pnpY-25}" stroke="black" stroke-width="2"/>
+                <line x1="${pnpX}" y1="${pnpY+10}" x2="${pnpX+25}" y2="${pnpY+25}" stroke="black" stroke-width="2"/>
+                <polygon points="${pnpX+6},${pnpY+5} ${pnpX},${pnpY+10} ${pnpX+5},${pnpY+13}" fill="black"/>
+                <text x="${pnpX+30}" y="${npnY+5}" font-size="10">Q1 (NPN)</text>
+                <text x="${pnpX+30}" y="${pnpY+5}" font-size="10">Q2 (PNP)</text>
+            `;
+
+            // Add wire jump/hop for bootstrap crossing (semicircle over the vertical wire)
+            if (useBootstrap) {
+                const jumpX = 200; // x position of vertical wire being crossed
+                const jumpY = outY - 50; // y position of horizontal bootstrap wire
+                extraSvg += `<path d="M ${jumpX-6} ${jumpY} A 6 6 0 0 1 ${jumpX+6} ${jumpY}" fill="none" stroke="black" stroke-width="2"/>`;
+            }
+
+            svg = svg.replace('</svg>', extraSvg + '</svg>');
+            return svg;
+        }
+
+        function drawPowerGraph(params) {
+            const { vcc, rload, vceSat } = params;
+
+            // Maximum output voltage swing
+            const vPeakMax = vcc / 2 - vceSat;
+
+            // Generate data points
+            const points = 50;
+            const poutData = [];
+            const pdcData = [];
+            const pdissData = [];
+
+            for (let i = 0; i <= points; i++) {
+                const vPeak = (i / points) * vPeakMax;
+                const pout = vPeak * vPeak / (2 * rload); // RMS output power
+
+                // DC power drawn (Class B): Pdc = (2 * Vcc * Ipeak) / pi
+                const iPeak = vPeak / rload;
+                const pdc = (2 * vcc * iPeak) / Math.PI;
+
+                // Total dissipation (both transistors)
+                const pdissTotal = pdc - pout;
+
+                poutData.push({ x: i * 2, y: pout });  // x as percentage
+                pdcData.push({ x: i * 2, y: pdc });
+                pdissData.push({ x: i * 2, y: pdissTotal / 2 }); // Per transistor
+            }
+
+            // Find max values for Y axis
+            const maxY = Math.max(
+                ...pdcData.map(p => p.y),
+                ...poutData.map(p => p.y),
+                ...pdissData.map(p => p.y)
+            ) * 1.1;
+
+            // Simple power graph
+            const width = 500, height = 250;
+            const margin = { top: 30, right: 20, bottom: 40, left: 60 };
+            const plotW = width - margin.left - margin.right;
+            const plotH = height - margin.top - margin.bottom;
+
+            const xScale = (v) => margin.left + plotW * (v / 100);
+            const yScale = (v) => margin.top + plotH * (1 - v / maxY);
+
+            let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: ${width}px; height: auto; font-family: monospace; font-size: 11px;">`;
+
+            // Background
+            svg += `<rect x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="#fafafa" stroke="#ccc"/>`;
+
+            // Grid
+            for (let x = 0; x <= 100; x += 20) {
+                svg += `<line x1="${xScale(x)}" y1="${margin.top}" x2="${xScale(x)}" y2="${margin.top + plotH}" stroke="#ddd"/>`;
+                svg += `<text x="${xScale(x)}" y="${height - 10}" text-anchor="middle">${x}%</text>`;
+            }
+
+            const yStep = Math.ceil(maxY / 5);
+            for (let y = 0; y <= maxY; y += yStep) {
+                svg += `<line x1="${margin.left}" y1="${yScale(y)}" x2="${margin.left + plotW}" y2="${yScale(y)}" stroke="#ddd"/>`;
+                svg += `<text x="${margin.left - 5}" y="${yScale(y) + 4}" text-anchor="end">${y.toFixed(0)}</text>`;
+            }
+
+            // Draw curves
+            const drawCurve = (data, color, dashed = false) => {
+                let pathD = `M ${xScale(data[0].x)} ${yScale(data[0].y)}`;
+                for (let i = 1; i < data.length; i++) {
+                    pathD += ` L ${xScale(data[i].x)} ${yScale(data[i].y)}`;
+                }
+                const dash = dashed ? ' stroke-dasharray="4,2"' : '';
+                svg += `<path d="${pathD}" fill="none" stroke="${color}" stroke-width="2"${dash}/>`;
+            };
+
+            drawCurve(pdcData, '#888', true);
+            drawCurve(poutData, '#2266cc');
+            drawCurve(pdissData, '#c33');
+
+            // Legend
+            svg += `<line x1="${margin.left + 10}" y1="${margin.top + 10}" x2="${margin.left + 30}" y2="${margin.top + 10}" stroke="#2266cc" stroke-width="2"/>`;
+            svg += `<text x="${margin.left + 35}" y="${margin.top + 14}">Pout</text>`;
+
+            svg += `<line x1="${margin.left + 80}" y1="${margin.top + 10}" x2="${margin.left + 100}" y2="${margin.top + 10}" stroke="#888" stroke-width="2" stroke-dasharray="4,2"/>`;
+            svg += `<text x="${margin.left + 105}" y="${margin.top + 14}">Pdc</text>`;
+
+            svg += `<line x1="${margin.left + 145}" y1="${margin.top + 10}" x2="${margin.left + 165}" y2="${margin.top + 10}" stroke="#c33" stroke-width="2"/>`;
+            svg += `<text x="${margin.left + 170}" y="${margin.top + 14}">Pdiss (each)</text>`;
+
+            // Labels
+            svg += `<text x="${width / 2}" y="${height - 25}" text-anchor="middle">Output Level (%)</text>`;
+            svg += `<text x="15" y="${height / 2}" text-anchor="middle" transform="rotate(-90, 15, ${height / 2})">Power (W)</text>`;
+
+            svg += '</svg>';
+            return svg;
+        }
+
+        function drawWaveforms(params) {
+            const { vSwing, vcc, vbe } = params;
+
+            const cycles = 2;
+            const numPoints = 200;
+            const inputPts = [];
+            const q1CurrentPts = [];
+            const q2CurrentPts = [];
+            const outputPts = [];
+
+            const vDc = vcc / 2;
+
+            for (let i = 0; i <= numPoints; i++) {
+                const t = (i / numPoints) * cycles;
+                const angle = t * 2 * Math.PI;
+
+                const vIn = vSwing * Math.sin(angle);
+
+                // Q1 conducts on positive half, Q2 on negative half
+                // Account for Vbe deadzone (crossover distortion)
+                let vOut = 0;
+                if (vIn > vbe) {
+                    vOut = vIn - vbe; // NPN conducting
+                } else if (vIn < -vbe) {
+                    vOut = vIn + vbe; // PNP conducting
+                }
+
+                inputPts.push({ x: t, y: vIn });
+                outputPts.push({ x: t, y: vOut });
+            }
+
+            const graph = new WaveformGraph({
+                xLabel: 'Crossover distortion visible near zero crossing',
+                yUnit: 'V'
+            });
+
+            graph.addCurve(inputPts, { color: '#888', label: 'Input', dashed: true });
+            graph.addCurve(outputPts, { color: '#2266cc', label: 'Output' });
+
+            // Show deadzone
+            graph.addHLine(vbe, { color: '#c66', dashed: true });
+            graph.addHLine(-vbe, { color: '#c66', dashed: true });
+
+            return graph.toSVG();
+        }
+
+        function calculate() {
+            const vcc = parseFloat(document.getElementById('vcc').value);
+            const rload = getLoadResistance();
+            const fLow = parseFloat(document.getElementById('fLow').value);
+            const tAmbient = parseFloat(document.getElementById('tAmbient').value);
+            const tJunctionMax = parseFloat(document.getElementById('tJunction').value);
+            const thetaSAinput = parseFloat(document.getElementById('thetaSAinput').value);
+            const useBootstrap = document.getElementById('useBootstrap').checked;
+
+            const transistor = getTransistorParams();
+            const beta = transistor.beta;
+            const icMax = transistor.icMax;
+            const pdMax = transistor.pdMax;
+            const vceSat = transistor.vceSat;
+            const thetaJC = transistor.thetaJC;
+            const isIdeal = document.getElementById('transistorPreset').value === 'ideal';
+
+            let warnings = [];
+            let notes = [];
+
+            const vbe = 0.7; // Base-emitter voltage
+
+            // Output DC bias point (center of supply for single-supply)
+            const vOutDc = vcc / 2;
+
+            // Maximum output swing (limited by Vce_sat on both ends)
+            const vSwingMax = vOutDc - vceSat;
+
+            // Peak collector current
+            const icPeak = vSwingMax / rload;
+
+            // Thermal calculations
+            const thetaCS = 0.5; // case-to-sink
+            const thetaTotal = thetaJC + thetaCS + thetaSAinput;
+            const pdThermalLimit = isIdeal ? Infinity : (tJunctionMax - tAmbient) / thetaTotal;
+            const pdLimit = Math.min(pdMax, pdThermalLimit);
+
+            // Class B power calculations
+            // Maximum output power: Pout_RMS = Vpeak² / (2 * Rload)
+            const poutMax = vSwingMax * vSwingMax / (2 * rload);
+            const poutPeak = vSwingMax * vSwingMax / rload; // Peak instantaneous power
+
+            // DC power at max output: Pdc = (2 * Vcc * Ipeak) / pi
+            const pdcFull = (2 * vcc * icPeak) / Math.PI;
+
+            // Efficiency at max output: η = (π/4) * (Vpeak/Vcc)
+            const efficiency = (Math.PI / 4) * (vSwingMax / vcc) * 100;
+
+            // Power dissipation per transistor at full output
+            const pdFullEach = (pdcFull - poutMax) / 2;
+
+            // Worst-case dissipation occurs at Vpeak = 2*Vcc/π ≈ 0.636*Vcc
+            // Pd_max_each = Vcc² / (π² * Rload)
+            const pdWorstEach = (vcc * vcc) / (Math.PI * Math.PI * rload);
+
+            // Output level at worst-case dissipation
+            const vPeakWorst = 2 * vcc / Math.PI;
+            const poutWorst = vPeakWorst * vPeakWorst / (2 * rload);
+
+            // Junction temperature at worst case
+            const tjWorst = tAmbient + pdWorstEach * thetaTotal;
+
+            // Idle dissipation (true Class B = 0, but with some leakage)
+            const pdIdle = 0; // Essentially zero
+
+            // Component calculations
+            // Output capacitor: Xc = Rload at fLow
+            const cout = 1 / (2 * Math.PI * fLow * rload);
+
+            // Base resistors - need to supply base current at peak
+            // Ib_peak = Ic_peak / beta
+            const ibPeak = icPeak / beta;
+            // Allow 10x base current margin for signal
+            const rbMax = vOutDc / (10 * ibPeak);
+            const rb = Math.min(rbMax, 10000); // Limit to reasonable value
+
+            // Input capacitor: Xc = Rb at fLow
+            const cin = 1 / (2 * Math.PI * fLow * rb);
+
+            // Bootstrap capacitor: ~10x Cout for good low-frequency response
+            const cboot = 10 * cout;
+
+            // Input impedance (approximately)
+            const zin = rb; // Dominated by base resistor
+
+            // Input voltage required for full output
+            const vinPeak = vSwingMax + vbe;
+            const vinRms = vinPeak / Math.sqrt(2);
+
+            // Round components
+            const rbRounded = roundToE24(rb);
+            const coutRounded = roundCap(cout);
+            const cinRounded = roundCap(cin);
+            const cbootRounded = roundCap(cboot);
+
+            // Warnings
+            if (icPeak > icMax) {
+                warnings.push(`<b>Peak current exceeds transistor rating:</b> Ic_peak (${(icPeak*1000).toFixed(0)}mA) > Ic max (${icMax*1000}mA). Reduce Vcc or use higher-rated transistors.`);
+            }
+
+            if (!isIdeal) {
+                if (pdWorstEach > pdMax) {
+                    warnings.push(`<b>Transistor power limit exceeded:</b> Worst-case dissipation (${pdWorstEach.toFixed(1)}W) > Pd max (${pdMax}W). Reduce Vcc, increase Rload, or choose higher-rated transistors.`);
+                } else if (pdWorstEach > pdThermalLimit) {
+                    const thetaNeeded = (tJunctionMax - tAmbient) / pdWorstEach - thetaJC - thetaCS;
+                    warnings.push(`<b>Heatsink insufficient:</b> Worst-case dissipation (${pdWorstEach.toFixed(1)}W) exceeds thermal limit (${pdThermalLimit.toFixed(1)}W). Need heatsink with θsa ≤ ${Math.max(0, thetaNeeded).toFixed(1)} °C/W per transistor.`);
+                } else if (tjWorst > tJunctionMax) {
+                    warnings.push(`<b>Junction temperature exceeded:</b> Estimated ${tjWorst.toFixed(0)}°C > max ${tJunctionMax}°C at worst-case output level.`);
+                }
+            }
+
+            if (vSwingMax < vOutDc * 0.5) {
+                notes.push(`Limited output swing due to Vce_sat. Consider higher Vcc or different transistors.`);
+            }
+
+            // Display warnings
+            const warn = document.getElementById('warning');
+            if (warnings.length > 0) {
+                warn.innerHTML = warnings.join('<br><br>');
+                warn.classList.remove('hidden');
+            } else {
+                warn.classList.add('hidden');
+            }
+
+            document.getElementById('results').style.display = 'block';
+
+            // Component values
+            document.getElementById('cin').textContent = fmtLong(cinRounded, 'F');
+            document.getElementById('cout').textContent = fmtLong(coutRounded, 'F');
+            document.getElementById('rb').textContent = fmtLong(rbRounded, 'Ω');
+
+            // Show/hide bootstrap capacitor row
+            const cbootRow = document.getElementById('cbootRow');
+            if (useBootstrap) {
+                cbootRow.classList.remove('hidden');
+                document.getElementById('cboot').textContent = fmtLong(cbootRounded, 'F');
+            } else {
+                cbootRow.classList.add('hidden');
+            }
+
+            // Operating point
+            document.getElementById('iq').textContent = '~0 mA (true Class B)';
+            document.getElementById('vout_dc').textContent = vOutDc.toFixed(1) + ' V (Vcc/2)';
+            document.getElementById('vswing').textContent = '±' + vSwingMax.toFixed(1) + ' V peak';
+            document.getElementById('icPeak').textContent = (icPeak * 1000).toFixed(0) + ' mA';
+
+            // Input requirements
+            document.getElementById('vinPeak').textContent = vinPeak.toFixed(2) + ' V';
+            document.getElementById('vinRms').textContent = vinRms.toFixed(2) + ' V';
+            document.getElementById('zin').textContent = fmtLong(zin, 'Ω');
+
+            // Power analysis
+            const voutRms = vSwingMax / Math.sqrt(2);
+            const ioutRms = voutRms / rload;
+            document.getElementById('poutMax').textContent = poutMax.toFixed(2) + ' W RMS (' + poutPeak.toFixed(2) + ' W peak)';
+            document.getElementById('voutRms').textContent = voutRms.toFixed(2) + ' V RMS';
+            document.getElementById('ioutRms').textContent = (ioutRms * 1000).toFixed(0) + ' mA RMS';
+            document.getElementById('pdcFull').textContent = pdcFull.toFixed(2) + ' W';
+            document.getElementById('efficiency').textContent = efficiency.toFixed(1) + '%';
+
+            // Thermal
+            if (isIdeal) {
+                document.getElementById('pdThermalLimit').textContent = 'N/A (ideal)';
+                document.getElementById('pdIdle').textContent = '~0 W';
+                document.getElementById('pdFull').textContent = pdFullEach.toFixed(2) + ' W';
+                document.getElementById('pdWorst').textContent = pdWorstEach.toFixed(2) + ' W (at ~63% output)';
+                document.getElementById('tjWorst').textContent = 'N/A (ideal)';
+            } else {
+                document.getElementById('pdThermalLimit').textContent = pdThermalLimit.toFixed(1) + ' W';
+                document.getElementById('pdIdle').textContent = '~0 W';
+                document.getElementById('pdFull').textContent = pdFullEach.toFixed(2) + ' W';
+                document.getElementById('pdWorst').textContent = pdWorstEach.toFixed(2) + ' W (at ~63% output)';
+                document.getElementById('tjWorst').textContent = tjWorst.toFixed(0) + ' °C';
+            }
+
+            document.getElementById('note').textContent = notes.join(' ');
+
+            // Schematic
+            document.getElementById('schematic').innerHTML = drawSchematic({
+                rb: fmt(rbRounded, 'Ω'),
+                cin: fmt(cinRounded, 'F'),
+                cout: fmt(coutRounded, 'F'),
+                cboot: useBootstrap ? fmt(cbootRounded, 'F') : null,
+                rload: fmt(rload, 'Ω'),
+                voutDc: vOutDc.toFixed(1) + 'V',
+                swing: '±' + vSwingMax.toFixed(1) + 'V',
+                pout: poutMax.toFixed(2) + 'W',
+                eff: efficiency.toFixed(0) + '%',
+                useBootstrap: useBootstrap
+            });
+
+            // Power graph
+            document.getElementById('powerGraph').innerHTML = drawPowerGraph({
+                vcc: vcc,
+                rload: rload,
+                vceSat: vceSat
+            });
+
+            // Waveforms
+            document.getElementById('waveforms').innerHTML = drawWaveforms({
+                vSwing: vSwingMax,
+                vcc: vcc,
+                vbe: vbe
+            });
+
+            // Store for Falstad
+            storeCalcValues({
+                vcc: vcc,
+                rb: rbRounded,
+                cin: cinRounded,
+                cout: coutRounded,
+                cboot: useBootstrap ? cbootRounded : null,
+                rload: rload,
+                useBootstrap: useBootstrap,
+                beta: beta,
+                vinPeak: vinPeak
+            });
+        }
+
+        function resetDefaults() {
+            document.getElementById('vcc').value = '24';
+            document.getElementById('rload').value = '8';
+            document.getElementById('rloadCustom').classList.add('hidden');
+            document.getElementById('fLow').value = '20';
+            document.getElementById('transistorPreset').value = 'tip31_32';
+            document.getElementById('tAmbient').value = '25';
+            document.getElementById('tJunction').value = '150';
+            document.getElementById('thetaSAinput').value = '3';
+            updateTransistorFields();
+        }
+
+        let lastCalcValues = null;
+
+        function storeCalcValues(vals) {
+            lastCalcValues = vals;
+        }
+
+        function openInFalstad() {
+            if (!lastCalcValues) {
+                alert('Please calculate first');
+                return;
+            }
+
+            const v = lastCalcValues;
+            const beta = v.beta;
+
+            // Falstad circuit for Class B push-pull
+            // Using complementary emitter followers
+            const lines = [
+                `$ 1 0.000005 10.20027730826997 ${v.vcc * 2} 5 50 5e-11`,
+
+                // Vcc power rail
+                `R 256 48 256 0 0 0 40 ${v.vcc} 0 0 0.5`,
+
+                // NPN transistor Q1 (top)
+                `t 208 128 256 128 0 1 -0.7 0.5 ${beta}`,
+
+                // PNP transistor Q2 (bottom) - note flags for PNP
+                `t 208 272 256 272 0 -1 0.7 -0.5 ${beta}`,
+
+                // Wire from Vcc to Q1 collector
+                `w 256 48 256 112 0`,
+
+                // Q1 emitter to output node
+                `w 256 144 256 200 0`,
+
+                // Q2 collector to output node
+                `w 256 256 256 200 0`,
+
+                // Q2 emitter to ground
+                `w 256 288 256 336 0`,
+                `g 256 336 256 352 0`,
+
+                // Bases connected together
+                `w 208 128 208 200 0`,
+                `w 208 200 208 272 0`,
+
+                // Base resistor
+                `r 128 200 208 200 0 ${v.rb}`,
+
+                // Input coupling cap
+                `c 64 200 128 200 0 ${v.cin} 0`,
+
+                // Input AC source
+                `R 64 200 16 200 0 1 1000 ${v.vinPeak} 0 0 0.5`,
+            ];
+
+            // Bootstrap capacitor (optional)
+            if (v.useBootstrap && v.cboot) {
+                lines.push(
+                    // Bootstrap cap - from input node up, then horizontal cap, then down to output
+                    `w 112 200 112 96 0`,           // up from input node
+                    `c 112 96 176 96 0 ${v.cboot} 0`, // horizontal cap
+                    `w 176 96 224 96 0`,            // right a bit
+                    `w 224 96 224 200 0`,           // down
+                    `w 224 200 256 200 0`           // right to output node
+                );
+            }
+
+            lines.push(
+                // Output coupling capacitor
+                `c 256 200 320 200 0 ${v.cout} 0`,
+
+                // Load resistor
+                `r 320 200 320 336 0 ${v.rload}`,
+                `g 320 336 320 352 0`,
+
+                // Output probe
+                `p 320 200 368 200 1 0 0`,
+
+                // Scope
+                `o 14 8 0 4099 10 0.05 0 2 14 3`
+            );
+
+            const circuitText = lines.join('\n');
+            const compressed = LZString.compressToEncodedURIComponent(circuitText);
+            const url = `https://www.falstad.com/circuit/circuitjs.html?ctz=${compressed}`;
+            window.open(url, '_blank');
+        }
+
+        window.onload = function() {
+            updateTransistorFields();
+            calculate();
+        };
+    </script>
+</body>
+</html>
