@@ -16,6 +16,12 @@
         }
     }
     </script>
+    <style>
+        .katex { font-size: 1.5em !important; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
 </head>
 <body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
     <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Voltage Divider Calculator</h1>
@@ -132,13 +138,13 @@
         </div>
     </div>
 
-    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
-        <h2 class="text-lg font-semibold text-gray-700 mb-3">Formula</h2>
-        <p class="font-mono text-gray-600">Vout = Vin × R2 / (R1 + R2)</p>
-        <div class="mt-4 text-sm text-gray-600 space-y-1">
-            <p><strong>Output impedance:</strong> Zout = R1 || R2 (parallel combination)</p>
-            <p><strong>Loading effect:</strong> If your load resistance is less than ~10× Zout, the output voltage will drop. Use lower resistor values or add a buffer.</p>
-        </div>
+    <div class="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-100">
+        <h2 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-3">Formulas</h2>
+        <ul class="text-sm text-blue-700 space-y-1 list-disc ml-4">
+            <li><strong>Output voltage:</strong> $V_{out} = V_{in} \cdot \frac{R_2}{R_1 + R_2}$</li>
+            <li><strong>Output impedance:</strong> $Z_{out} = R_1 \parallel R_2 = \frac{R_1 \cdot R_2}{R_1 + R_2}$</li>
+        </ul>
+        <p class="mt-3 text-sm text-blue-700"><strong>Loading effect:</strong> If your load resistance is less than ~10× $Z_{out}$, the output voltage will drop. Use lower resistor values or add a buffer.</p>
     </div>
 
     <script src="../common.js"></script>
