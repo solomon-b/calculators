@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RL Filter Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+        .katex { font-size: 1.5em !important; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">RL Filter Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Design simple first-order passive Low-Pass and High-Pass RL filters. 
+        Calculate cutoff frequency, or find component values for a target frequency.
+    </p>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Filter Parameters</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Select whether to design a Low-Pass (blocks high frequencies) or High-Pass (blocks low frequencies) filter.">Filter Type:</td>
+                <td class="py-2">
+                    <select id="type" onchange="calculate()" class="px-2 py-1 border border-gray-300 rounded text-sm w-full sm:w-auto">
+                        <option value="lowpass" selected>Low-Pass</option>
+                        <option value="highpass">High-Pass</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="The -3dB cutoff frequency (fc) where the filter starts to significantly attenuate the signal.">Cutoff Frequency:</td>
+                <td class="py-2">
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="fc" value="10" step="1" min="1" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="fc_unit" class="px-1 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1">Hz</option>
+                            <option value="1000" selected>kHz</option>
+                            <option value="1000000">MHz</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Resistance (R) value. Usually chosen based on system impedance.">Resistance (R):</td>
+                <td class="py-2">
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="r" value="1" step="0.1" min="0.1" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="r_unit" class="px-1 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1">Ω</option>
+                            <option value="1000" selected>kΩ</option>
+                            <option value="1000000">MΩ</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Inductance (L) value. Higher values are used for low-frequency filters.">Inductance (L):</td>
+                <td class="py-2">
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="l" value="15" step="1" min="0.001" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="l_unit" class="px-1 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1e-9">nH</option>
+                            <option value="1e-6">µH</option>
+                            <option value="1e-3" selected>mH</option>
+                            <option value="1">H</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Calculate the missing value based on the other two.">Calculate:</td>
+                <td class="py-2">
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="calcFc()" class="px-3 py-1 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 text-xs font-semibold">fc from R,L</button>
+                        <button onclick="calcR()" class="px-3 py-1 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 text-xs font-semibold">R from fc,L</button>
+                        <button onclick="calcL()" class="px-3 py-1 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 text-xs font-semibold">L from fc,R</button>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Simulation Settings</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Peak amplitude of the input signal for waveform visualization.">Input Peak:</td>
+                <td class="py-2"><input type="number" id="vin" value="1" step="0.1" min="0.01" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> V</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Frequency of the test signal for waveform visualization.">Signal Frequency:</td>
+                <td class="py-2">
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="test_freq" value="1" step="0.1" min="0.001" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="test_freq_unit" class="px-1 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1">Hz</option>
+                            <option value="1000" selected>kHz</option>
+                            <option value="1000000">MHz</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm font-semibold">Update Results</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm font-semibold">Reset</button>
+        <button onclick="openInFalstad()" class="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm font-semibold">Open in Falstad</button>
+    </div>
+
+    <div id="results" class="hidden">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Calculated Values</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4">Actual Cutoff (fc):</td><td id="fc_actual" class="py-2 text-right font-mono font-bold text-primary"></td></tr>
+                <tr><td class="py-2 pr-4">Time Constant (&tau;):</td><td id="tau_out" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Phase Shift at Signal:</td><td id="phase_out" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Gain at Signal:</td><td id="gain_out" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Frequency Response</h2>
+        <div id="freq_graph" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Waveforms</h2>
+        <div id="wave_graph" class="overflow-x-auto"></div>
+
+        <div class="mt-8 bg-blue-50 p-4 rounded border border-blue-100">
+            <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-2">Filter Theory</h3>
+            <p class="text-sm text-blue-700">
+                The cutoff frequency ($f_c$) is the point where the output power drops to half of the input power ($-3\text{ dB}$).
+            </p>
+            <ul class="text-sm text-blue-700 space-y-1 list-disc ml-4 mt-2">
+                <li><strong>Cutoff Frequency:</strong> $f_c = \frac{R}{2\pi L}$</li>
+                <li><strong>Low-Pass Gain:</strong> $H(f) = \frac{1}{\sqrt{1 + (f/f_c)^2}}$</li>
+                <li><strong>High-Pass Gain:</strong> $H(f) = \frac{f/f_c}{\sqrt{1 + (f/f_c)^2}}$</li>
+                <li><strong>Phase Shift:</strong> $\phi = -\arctan(f/f_c)$ (LP) or $\arctan(f_c/f)$ (HP)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+    <script>
+        let lastCalcValues = null;
+
+        function calcFc() {
+            const r = parseFloat(document.getElementById('r').value) * parseFloat(document.getElementById('r_unit').value);
+            const l = parseFloat(document.getElementById('l').value) * parseFloat(document.getElementById('l_unit').value);
+            const fc = r / (2 * Math.PI * l);
+            
+            const unit = parseFloat(document.getElementById('fc_unit').value);
+            document.getElementById('fc').value = (fc / unit).toFixed(3);
+            calculate();
+        }
+
+        function calcR() {
+            const fc = parseFloat(document.getElementById('fc').value) * parseFloat(document.getElementById('fc_unit').value);
+            const l = parseFloat(document.getElementById('l').value) * parseFloat(document.getElementById('l_unit').value);
+            const r = 2 * Math.PI * fc * l;
+            
+            const r_rounded = roundToE24(r);
+            const unit = parseFloat(document.getElementById('r_unit').value);
+            document.getElementById('r').value = (r_rounded / unit).toFixed(3);
+            calculate();
+        }
+
+        function calcL() {
+            const fc = parseFloat(document.getElementById('fc').value) * parseFloat(document.getElementById('fc_unit').value);
+            const r = parseFloat(document.getElementById('r').value) * parseFloat(document.getElementById('r_unit').value);
+            const l = r / (2 * Math.PI * fc);
+            
+            // Inductors don't have a dedicated roundCap-like function in common.js yet
+            const l_rounded = roundToE24(l * 1e6) / 1e6; 
+            const unit = parseFloat(document.getElementById('l_unit').value);
+            document.getElementById('l').value = (l_rounded / unit).toFixed(6);
+            calculate();
+        }
+
+        function calculate() {
+            const type = document.getElementById('type').value;
+            const r = parseFloat(document.getElementById('r').value) * parseFloat(document.getElementById('r_unit').value);
+            const l = parseFloat(document.getElementById('l').value) * parseFloat(document.getElementById('l_unit').value);
+            const vin = parseFloat(document.getElementById('vin').value);
+            const testFreq = parseFloat(document.getElementById('test_freq').value) * parseFloat(document.getElementById('test_freq_unit').value);
+
+            if (isNaN(r) || isNaN(l) || isNaN(testFreq)) return;
+
+            const fc = r / (2 * Math.PI * l);
+            const tau = l / r;
+
+            // Gain and Phase at test frequency
+            const ratio = testFreq / fc;
+            let gain, phaseDeg;
+            if (type === 'lowpass') {
+                gain = 1 / Math.sqrt(1 + ratio * ratio);
+                phaseDeg = -Math.atan(ratio) * 180 / Math.PI;
+            } else {
+                gain = ratio / Math.sqrt(1 + ratio * ratio);
+                phaseDeg = Math.atan(1 / ratio) * 180 / Math.PI;
+            }
+
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('fc_actual').textContent = fmtLong(fc, 'Hz');
+            document.getElementById('tau_out').textContent = (tau * 1e6).toFixed(2) + ' µs';
+            document.getElementById('phase_out').textContent = phaseDeg.toFixed(1) + '°';
+            document.getElementById('gain_out').textContent = gain.toFixed(3) + ' V/V (' + (20 * Math.log10(gain)).toFixed(1) + ' dB)';
+
+            // Draw Schematic
+            document.getElementById('schematic').innerHTML = drawSchematic(type, r, l);
+
+            // Frequency Response
+            const fMin = Math.min(fc / 100, testFreq / 10, 10);
+            const fMax = Math.max(fc * 100, testFreq * 10, 10000000);
+            
+            const magFn = (f) => {
+                const fr = f / fc;
+                return type === 'lowpass' ? 1 / Math.sqrt(1 + fr * fr) : fr / Math.sqrt(1 + fr * fr);
+            };
+
+            const graph = new Graph({
+                xMin: fMin, xMax: fMax,
+                yMin: -40, yMax: 5,
+                xLabel: 'Frequency (Hz)',
+                yLabel: 'Gain (dB)'
+            });
+            const curve = generateResponseCurve(fMin, fMax, magFn);
+            graph.addCurve(curve, { label: 'Response' });
+            graph.addVLine(fc, { label: 'Cutoff (' + fmt(fc, 'Hz') + ')', color: '#888' });
+            graph.addVLine(testFreq, { label: 'Test Signal', color: '#22cc66' });
+            graph.addHLine(-3, { label: '-3dB', color: '#f88' });
+            document.getElementById('freq_graph').innerHTML = graph.toSVG();
+
+            // Waveforms
+            const waveGraph = new WaveformGraph({
+                xLabel: 'Time (2 cycles)',
+                yUnit: 'V'
+            });
+            const points = 200;
+            const cycles = 2;
+            const inCurve = [];
+            const outCurve = [];
+            for (let i = 0; i <= points; i++) {
+                const t = (i / points) * cycles / testFreq;
+                const angle = 2 * Math.PI * testFreq * t;
+                const phaseRad = phaseDeg * Math.PI / 180;
+                inCurve.push({ x: i, y: vin * Math.sin(angle) });
+                outCurve.push({ x: i, y: vin * gain * Math.sin(angle + phaseRad) });
+            }
+            waveGraph.addCurve(inCurve, { label: 'Input', color: '#2266cc' });
+            waveGraph.addCurve(outCurve, { label: 'Output', color: '#cc2222' });
+            document.getElementById('wave_graph').innerHTML = waveGraph.toSVG();
+
+            lastCalcValues = { type, r, l, fc, testFreq, vin };
+        }
+
+        function drawSchematic(type, r, l) {
+            const sch = new Schematic(400, 200);
+            sch.label(type === 'lowpass' ? 'Low-Pass' : 'High-Pass', 200, 30, { bold: true, anchor: 'middle' });
+            
+            sch.label('In', 30, 104);
+            sch.label('Out', 350, 104);
+
+            if (type === 'lowpass') {
+                // L series, R shunt
+                sch.place('inductor-h', 'L', 125, 100, { label: fmt(l, 'H') });
+                sch.wire({ x: 50, y: 100 }, 'L.a');
+                sch.wire('L.b', { x: 250, y: 100 });
+                sch.node(250, 100);
+                sch.place('resistor-v', 'R', 250, 140, { label: fmt(r, 'Ω') });
+                sch.wire({ x: 250, y: 100 }, 'R.a');
+                sch.place('ground', 'GND', 250, 180);
+                sch.wire('R.b', 'GND.a');
+                sch.wire({ x: 250, y: 100 }, { x: 330, y: 100 });
+            } else {
+                // R series, L shunt
+                sch.place('resistor-h', 'R', 125, 100, { label: fmt(r, 'Ω') });
+                sch.wire({ x: 50, y: 100 }, 'R.a');
+                sch.wire('R.b', { x: 250, y: 100 });
+                sch.node(250, 100);
+                sch.place('inductor-v', 'L', 250, 140, { label: fmt(l, 'H') });
+                sch.wire({ x: 250, y: 100 }, 'L.a');
+                sch.place('ground', 'GND', 250, 180);
+                sch.wire('L.b', 'GND.a');
+                sch.wire({ x: 250, y: 100 }, { x: 330, y: 100 });
+            }
+            return sch.toSVG();
+        }
+
+        function buildFalstadSchematic(v) {
+            const sch = new Schematic(500, 300);
+            sch.setFalstadOptions({ vMax: v.vin * 2 });
+
+            sch.place('ac-source-v', 'Vin', 50, 100, { value: v.vin, freq: v.testFreq, label: 'Vin' });
+            sch.place('ground', 'GND1', 50, 200);
+            sch.wire('Vin.neg', 'GND1.a');
+
+            if (v.type === 'lowpass') {
+                sch.place('inductor-h', 'L', 150, 100, { value: v.l, label: fmt(v.l, 'H') });
+                sch.place('resistor-v', 'R', 250, 150, { value: v.r, label: fmt(v.r, 'Ω') });
+                sch.wire('Vin.pos', 'L.a');
+                sch.wire('L.b', { x: 250, y: 100 });
+                sch.node(250, 100);
+                sch.wire({ x: 250, y: 100 }, 'R.a');
+                sch.place('ground', 'GND2', 250, 200);
+                sch.wire('R.b', 'GND2.a');
+                sch.place('probe', 'Out', 350, 100);
+                sch.wire({ x: 250, y: 100 }, 'Out.a');
+            } else {
+                sch.place('resistor-h', 'R', 150, 100, { value: v.r, label: fmt(v.r, 'Ω') });
+                sch.place('inductor-v', 'L', 250, 150, { value: v.l, label: fmt(v.l, 'H') });
+                sch.wire('Vin.pos', 'R.a');
+                sch.wire('R.b', { x: 250, y: 100 });
+                sch.node(250, 100);
+                sch.wire({ x: 250, y: 100 }, 'L.a');
+                sch.place('ground', 'GND2', 250, 200);
+                sch.wire('L.b', 'GND2.a');
+                sch.place('probe', 'Out', 350, 100);
+                sch.wire({ x: 250, y: 100 }, 'Out.a');
+            }
+            return sch;
+        }
+
+        function openInFalstad() {
+            if (!lastCalcValues) return;
+            buildFalstadSchematic(lastCalcValues).openInFalstad();
+        }
+
+        function resetDefaults() {
+            document.getElementById('type').value = 'lowpass';
+            document.getElementById('fc').value = '10';
+            document.getElementById('fc_unit').value = '1000';
+            document.getElementById('r').value = '1';
+            document.getElementById('r_unit').value = '1000';
+            document.getElementById('l').value = '15';
+            document.getElementById('l_unit').value = '1e-3';
+            document.getElementById('vin').value = '1';
+            document.getElementById('test_freq').value = '1';
+            document.getElementById('test_freq_unit').value = '1000';
+            calculate();
+        }
+
+        window.onload = function() {
+            calculate();
+        };
+    </script>
+</body>
+</html>

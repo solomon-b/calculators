@@ -180,14 +180,16 @@ class Schematic {
             case 'v-h': // Vertical then horizontal
                 points = `${from.x},${from.y} ${from.x},${to.y} ${to.x},${to.y}`;
                 break;
-            case 'h-v-h': // Horizontal, vertical, horizontal (with midX)
+            case 'h-v-h': { // Horizontal, vertical, horizontal (with midX)
                 const midX = wire.options.midX || (from.x + to.x) / 2;
                 points = `${from.x},${from.y} ${midX},${from.y} ${midX},${to.y} ${to.x},${to.y}`;
                 break;
-            case 'v-h-v': // Vertical, horizontal, vertical (with midY)
+            }
+            case 'v-h-v': { // Vertical, horizontal, vertical (with midY)
                 const midY = wire.options.midY || (from.y + to.y) / 2;
                 points = `${from.x},${from.y} ${from.x},${midY} ${to.x},${midY} ${to.x},${to.y}`;
                 break;
+            }
             default:
                 return '';
         }
@@ -523,6 +525,58 @@ class DiodeV extends Component {
     }
 }
 
+// Horizontal inductor - (x,y) is center, 48px wide
+class InductorH extends Component {
+    constructor(id, x, y, options = {}) {
+        super(id, x, y, options);
+        this.pins = {
+            a: { x: -24, y: 0 },
+            b: { x: 24, y: 0 },
+        };
+    }
+    render() {
+        const { x, y, options } = this;
+        const label = options.label || this.id;
+        let s = `<path d="M${x - 24},${y} a6,6 0 0 1 12,0 a6,6 0 0 1 12,0 a6,6 0 0 1 12,0 a6,6 0 0 1 12,0" fill="none" stroke="black" stroke-width="2"/>`;
+        s += `<text x="${x}" y="${y - 15}" text-anchor="middle">${label}</text>`;
+        return s;
+    }
+    toFalstad() {
+        const { x, y, options } = this;
+        if (options.value === undefined) return null;
+        // l x1 y1 x2 y2 0 <inductance> <current>
+        return `l ${x - 24} ${y} ${x + 24} ${y} 0 ${options.value} 0`;
+    }
+}
+
+// Vertical inductor - (x,y) is center, 48px tall
+class InductorV extends Component {
+    constructor(id, x, y, options = {}) {
+        super(id, x, y, options);
+        this.pins = {
+            a: { x: 0, y: -24 },
+            b: { x: 0, y: 24 },
+        };
+    }
+    render() {
+        const { x, y, options } = this;
+        const label = options.label || this.id;
+        const labelPos = options.labelPos || 'right';
+        let s = `<path d="M${x},${y - 24} a6,6 0 0 1 0,12 a6,6 0 0 1 0,12 a6,6 0 0 1 0,12 a6,6 0 0 1 0,12" fill="none" stroke="black" stroke-width="2"/>`;
+        if (labelPos === 'right') {
+            s += `<text x="${x + 15}" y="${y + 5}">${label}</text>`;
+        } else {
+            s += `<text x="${x - 15}" y="${y + 5}" text-anchor="end">${label}</text>`;
+        }
+        return s;
+    }
+    toFalstad() {
+        const { x, y, options } = this;
+        if (options.value === undefined) return null;
+        return `l ${x} ${y - 24} ${x} ${y + 24} 0 ${options.value} 0`;
+    }
+}
+
 // NPN BJT transistor - (x,y) is center of base bar
 // Base on left, collector top-right, emitter bottom-right
 class NPN extends Component {
@@ -727,6 +781,9 @@ const COMPONENT_TYPES = {
     'capacitor': CapacitorH,
     'capacitor-h': CapacitorH,
     'capacitor-v': CapacitorV,
+    'inductor': InductorH,
+    'inductor-h': InductorH,
+    'inductor-v': InductorV,
     'diode': DiodeH,
     'diode-h': DiodeH,
     'diode-v': DiodeV,

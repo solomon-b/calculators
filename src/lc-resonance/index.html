@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LC Resonance Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+        .katex { font-size: 1.5em !important; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">LC Resonance Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Calculate the resonant frequency of an LC tank circuit, or find the required inductance or capacitance for a target frequency.
+    </p>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Circuit Parameters</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Select the circuit configuration.">Configuration:</td>
+                <td class="py-2">
+                    <select id="config" onchange="calculate()" class="px-2 py-1 border border-gray-300 rounded text-sm w-full sm:w-auto">
+                        <option value="parallel" selected>Parallel Tank</option>
+                        <option value="series">Series Tank</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="The resonant frequency (fr) where inductive and capacitive reactances are equal.">Resonant Frequency (fr):</td>
+                <td class="py-2">
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="fr" value="1" step="0.1" min="0.001" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="fr_unit" class="px-1 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1">Hz</option>
+                            <option value="1000" selected>kHz</option>
+                            <option value="1000000">MHz</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Inductance (L) value.">Inductance (L):</td>
+                <td class="py-2">
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="l" value="100" step="1" min="0.001" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="l_unit" class="px-1 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1e-9">nH</option>
+                            <option value="1e-6" selected>µH</option>
+                            <option value="1e-3">mH</option>
+                            <option value="1">H</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Capacitance (C) value.">Capacitance (C):</td>
+                <td class="py-2">
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="c" value="250" step="1" min="0.001" class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                        <select id="c_unit" class="px-1 py-1 border border-gray-300 rounded text-sm">
+                            <option value="1e-12">pF</option>
+                            <option value="1e-9" selected>nF</option>
+                            <option value="1e-6">µF</option>
+                        </select>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Calculate the missing value based on the other two.">Calculate:</td>
+                <td class="py-2">
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="calcFr()" class="px-3 py-1 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 text-xs font-semibold">fr from L,C</button>
+                        <button onclick="calcL()" class="px-3 py-1 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 text-xs font-semibold">L from fr,C</button>
+                        <button onclick="calcC()" class="px-3 py-1 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 text-xs font-semibold">C from fr,L</button>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm font-semibold">Update Results</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm font-semibold">Reset</button>
+        <button onclick="openInFalstad()" class="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm font-semibold">Open in Falstad</button>
+    </div>
+
+    <div id="results" class="hidden">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Reactance at Resonance</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr><td class="py-2 pr-4">Resonant Frequency (fr):</td><td id="fr_actual" class="py-2 text-right font-mono font-bold text-primary"></td></tr>
+                <tr><td class="py-2 pr-4">Reactance (XL = XC):</td><td id="x_out" class="py-2 text-right font-mono"></td></tr>
+                <tr><td class="py-2 pr-4">Char. Impedance (Z0):</td><td id="z0_out" class="py-2 text-right font-mono"></td></tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Reactance vs. Frequency</h2>
+        <div id="reactance_graph" class="overflow-x-auto"></div>
+        
+        <div class="mt-8 bg-blue-50 p-4 rounded border border-blue-100">
+            <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-2">Resonance Theory</h3>
+            <p class="text-sm text-blue-700">
+                Resonance occurs when the inductive reactance ($X_L = 2\pi f L$) and capacitive reactance ($X_C = \frac{1}{2\pi f C}$) are equal in magnitude but opposite in phase, effectively canceling each other out.
+            </p>
+            <ul class="text-sm text-blue-700 space-y-1 list-disc ml-4 mt-2">
+                <li><strong>Parallel Tank:</strong> Impedance is theoretically infinite at resonance. Used as a band-stop or frequency selector.</li>
+                <li><strong>Series Tank:</strong> Impedance is theoretically zero (only limited by ESR) at resonance. Used as a band-pass filter.</li>
+                <li><strong>Impedance:</strong> The characteristic impedance is $Z_0 = \sqrt{L/C}$.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="../graph.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+    <script>
+        let lastCalcValues = null;
+
+        function calcFr() {
+            const l = parseFloat(document.getElementById('l').value) * parseFloat(document.getElementById('l_unit').value);
+            const c = parseFloat(document.getElementById('c').value) * parseFloat(document.getElementById('c_unit').value);
+            const fr = 1 / (2 * Math.PI * Math.sqrt(l * c));
+            
+            const unit = parseFloat(document.getElementById('fr_unit').value);
+            document.getElementById('fr').value = (fr / unit).toFixed(3);
+            calculate();
+        }
+
+        function calcL() {
+            const fr = parseFloat(document.getElementById('fr').value) * parseFloat(document.getElementById('fr_unit').value);
+            const c = parseFloat(document.getElementById('c').value) * parseFloat(document.getElementById('c_unit').value);
+            // fr = 1 / (2pi sqrt(LC)) => fr^2 = 1 / (4pi^2 LC) => L = 1 / (4pi^2 fr^2 C)
+            const l = 1 / (4 * Math.PI * Math.PI * fr * fr * c);
+            
+            const unit = parseFloat(document.getElementById('l_unit').value);
+            document.getElementById('l').value = (l / unit).toFixed(6);
+            calculate();
+        }
+
+        function calcC() {
+            const fr = parseFloat(document.getElementById('fr').value) * parseFloat(document.getElementById('fr_unit').value);
+            const l = parseFloat(document.getElementById('l').value) * parseFloat(document.getElementById('l_unit').value);
+            const c = 1 / (4 * Math.PI * Math.PI * fr * fr * l);
+            
+            const unit = parseFloat(document.getElementById('c_unit').value);
+            document.getElementById('c').value = (c / unit).toFixed(9);
+            calculate();
+        }
+
+        function calculate() {
+            const config = document.getElementById('config').value;
+            const l = parseFloat(document.getElementById('l').value) * parseFloat(document.getElementById('l_unit').value);
+            const c = parseFloat(document.getElementById('c').value) * parseFloat(document.getElementById('c_unit').value);
+
+            if (isNaN(l) || isNaN(c)) return;
+
+            const fr = 1 / (2 * Math.PI * Math.sqrt(l * c));
+            const x = 2 * Math.PI * fr * l;
+            const z0 = Math.sqrt(l / c);
+
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('fr_actual').textContent = fmtLong(fr, 'Hz');
+            document.getElementById('x_out').textContent = fmtLong(x, 'Ω');
+            document.getElementById('z0_out').textContent = fmtLong(z0, 'Ω');
+
+            // Draw Schematic
+            document.getElementById('schematic').innerHTML = drawSchematic(config, l, c);
+
+            // Reactance Graph
+            const fMin = fr / 5;
+            const fMax = fr * 5;
+            
+            const graph = new Graph({
+                xMin: fMin, xMax: fMax,
+                yMin: 0, yMax: x * 2,
+                xLog: false, // Linear scale for better visualization of crossing
+                yLog: false,
+                xLabel: 'Frequency (Hz)',
+                yLabel: 'Reactance (Ω)'
+            });
+            
+            const xlCurve = [];
+            const xcCurve = [];
+            const steps = 100;
+            for (let i = 0; i <= steps; i++) {
+                const f = fMin + (fMax - fMin) * i / steps;
+                xlCurve.push({ x: f, y: 2 * Math.PI * f * l });
+                xcCurve.push({ x: f, y: 1 / (2 * Math.PI * f * c) });
+            }
+            
+            graph.addCurve(xlCurve, { label: 'XL (Inductive)', color: '#2266cc' });
+            graph.addCurve(xcCurve, { label: 'XC (Capacitive)', color: '#cc2222' });
+            graph.addVLine(fr, { label: 'Resonance', color: '#22cc66' });
+            
+            document.getElementById('reactance_graph').innerHTML = graph.toSVG();
+
+            lastCalcValues = { config, l, c, fr };
+        }
+
+        function drawSchematic(config, l, c) {
+            const sch = new Schematic(400, 200);
+            
+            if (config === 'parallel') {
+                // Parallel LC Tank
+                sch.wire({ x: 50, y: 100 }, { x: 150, y: 100 });
+                sch.node(150, 100);
+                sch.wire({ x: 150, y: 100 }, { x: 250, y: 100 });
+                sch.node(250, 100);
+                sch.wire({ x: 250, y: 100 }, { x: 350, y: 100 });
+
+                sch.place('inductor-v', 'L', 150, 140, { label: fmt(l, 'H') });
+                sch.wire({ x: 150, y: 100 }, 'L.a');
+                sch.place('ground', 'GND1', 150, 180);
+                sch.wire('L.b', 'GND1.a');
+
+                sch.place('capacitor-v', 'C', 250, 140, { label: fmt(c, 'F') });
+                sch.wire({ x: 250, y: 100 }, 'C.a');
+                sch.place('ground', 'GND2', 250, 180);
+                sch.wire('C.b', 'GND2.a');
+            } else {
+                // Series LC Tank
+                sch.wire({ x: 50, y: 100 }, { x: 100, y: 100 });
+                sch.place('inductor-h', 'L', 150, 100, { label: fmt(l, 'H') });
+                sch.wire({ x: 100, y: 100 }, 'L.a');
+                sch.place('capacitor-h', 'C', 250, 100, { label: fmt(c, 'F') });
+                sch.wire('L.b', 'C.a');
+                sch.wire('C.b', { x: 350, y: 100 });
+                sch.label('Z ≈ 0Ω', 200, 140, { anchor: 'middle', bold: true });
+            }
+
+            sch.label('In', 30, 104);
+            sch.label('Out', 360, 104);
+
+            return sch.toSVG();
+        }
+
+        function openInFalstad() {
+            if (!lastCalcValues) return;
+            const sch = new Schematic(500, 300);
+            const v = lastCalcValues;
+            
+            sch.place('ac-source-v', 'Vin', 50, 100, { value: 1, freq: v.fr, label: 'Vin' });
+            sch.place('ground', 'GND1', 50, 200);
+            sch.wire('Vin.neg', 'GND1.a');
+
+            if (v.config === 'parallel') {
+                sch.place('resistor-h', 'Rs', 125, 100, { value: 10, label: '10Ω' });
+                sch.wire('Vin.pos', 'Rs.a');
+                sch.wire('Rs.b', { x: 200, y: 100 });
+                sch.node(200, 100);
+                sch.place('inductor-v', 'L', 200, 150, { value: v.l, label: fmt(v.l, 'H') });
+                sch.place('capacitor-v', 'C', 300, 150, { value: v.c, label: fmt(v.c, 'F') });
+                sch.wire({ x: 200, y: 100 }, 'L.a');
+                sch.wire({ x: 200, y: 100 }, { x: 300, y: 100 });
+                sch.wire({ x: 300, y: 100 }, 'C.a');
+                sch.place('ground', 'GND2', 200, 200);
+                sch.wire('L.b', 'GND2.a');
+                sch.place('ground', 'GND3', 300, 200);
+                sch.wire('C.b', 'GND3.a');
+                sch.place('probe', 'Out', 380, 100);
+                sch.wire({ x: 300, y: 100 }, 'Out.a');
+            } else {
+                sch.place('inductor-h', 'L', 150, 100, { value: v.l, label: fmt(v.l, 'H') });
+                sch.place('capacitor-h', 'C', 250, 100, { value: v.c, label: fmt(v.c, 'F') });
+                sch.place('resistor-v', 'Rl', 350, 150, { value: 1000, label: '1kΩ Load' });
+                sch.wire('Vin.pos', 'L.a');
+                sch.wire('L.b', 'C.a');
+                sch.wire('C.b', 'Rl.a');
+                sch.place('ground', 'GND2', 350, 200);
+                sch.wire('Rl.b', 'GND2.a');
+                sch.place('probe', 'Out', 420, 150);
+                sch.wire('Rl.a', 'Out.a');
+            }
+            
+            sch.openInFalstad();
+        }
+
+        function resetDefaults() {
+            document.getElementById('fr').value = '1';
+            document.getElementById('fr_unit').value = '1000';
+            document.getElementById('l').value = '100';
+            document.getElementById('l_unit').value = '1e-6';
+            document.getElementById('c').value = '250';
+            document.getElementById('c_unit').value = '1e-9';
+            calculate();
+        }
+
+        window.onload = function() {
+            calculate();
+        };
+    </script>
+</body>
+</html>

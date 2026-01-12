@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi Attenuator Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+        .katex { font-size: 1.5em !important; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Pi Attenuator Calculator</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Design a symmetrical &pi; (Pi) attenuator for impedance matching and signal level reduction.
+        This network uses three resistors to provide a specific attenuation while maintaining a constant system impedance.
+    </p>
+
+    <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Circuit Parameters</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full sm:w-auto">
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Desired attenuation in decibels (dB).">Desired Attenuation:</td>
+                <td class="py-2"><input type="number" id="attenuation" value="10" step="1" min="0.1" max="100" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> dB</td>
+            </tr>
+            <tr>
+                <td class="py-2 pr-4 cursor-help" title="Characteristic impedance of the system (e.g., 50&Omega; for RF, 75&Omega; for video, 600&Omega; for audio).">System Impedance (Z0):</td>
+                <td class="py-2"><input type="number" id="z0" value="50" step="1" min="1" class="w-20 px-2 py-1 border border-gray-300 rounded text-sm"> &Omega;</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="calculate()" class="px-5 py-2 bg-primary text-white rounded hover:bg-blue-700 cursor-pointer text-sm">Calculate</button>
+        <button onclick="resetDefaults()" class="px-5 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer text-sm">Reset</button>
+        <button onclick="openInFalstad()" class="px-5 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer text-sm">Open in Falstad</button>
+    </div>
+
+    <div id="warning" class="hidden text-red-700 bg-red-50 border-l-4 border-red-600 p-4 my-4"></div>
+
+    <div id="results" class="hidden">
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Schematic</h2>
+        <div id="schematic" class="overflow-x-auto"></div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Component Values</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr>
+                    <td class="py-2 pr-4 cursor-help" title="The two shunt (vertical) resistors in the Pi network.">R1, R3 (shunt):</td>
+                    <td id="r1_out" class="py-2 text-right font-mono"></td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 cursor-help" title="The series (horizontal) resistor in the Pi network.">R2 (series):</td>
+                    <td id="r2_out" class="py-2 text-right font-mono"></td>
+                </tr>
+            </table>
+        </div>
+
+        <h2 class="text-xl font-semibold text-gray-600 mt-8 mb-4">Calculated Performance</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full sm:w-auto">
+                <tr>
+                    <td class="py-2 pr-4 cursor-help" title="Actual attenuation achieved using standard E24 resistor values.">Actual Attenuation:</td>
+                    <td id="actual_atten" class="py-2 text-right font-mono text-primary font-bold"></td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 cursor-help" title="Input impedance seen by the source, assuming a matched load (Z0) is connected to the output.">Input Impedance:</td>
+                    <td id="actual_zin" class="py-2 text-right font-mono"></td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 cursor-help" title="The ratio of the reflected power to the incident power, in dB. Lower is better.">Return Loss:</td>
+                    <td id="actual_rl" class="py-2 text-right font-mono"></td>
+                </tr>
+                <tr>
+                    <td class="py-2 pr-4 cursor-help" title="Voltage Standing Wave Ratio. A measure of how well the attenuator is matched to the system impedance. 1.0 is a perfect match.">VSWR:</td>
+                    <td id="actual_vswr" class="py-2 text-right font-mono"></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="mt-8 bg-blue-50 p-4 rounded border border-blue-100">
+            <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-2">Design Equations</h3>
+            <p class="text-sm text-blue-700 mb-2">
+                For a symmetrical Pi attenuator with attenuation $A$ (in dB) and characteristic impedance $Z_0$:
+            </p>
+            <ul class="text-sm text-blue-700 space-y-1 list-disc ml-4">
+                <li><strong>Voltage ratio:</strong> $K = 10^{A/20}$</li>
+                <li><strong>Shunt resistors:</strong> $R_1 = R_3 = Z_0 \cdot \frac{K + 1}{K - 1}$</li>
+                <li><strong>Series resistor:</strong> $R_2 = Z_0 \cdot \frac{K^2 - 1}{2K}$</li>
+            </ul>
+        </div>
+
+        <div class="mt-4 bg-blue-50 p-4 rounded border border-blue-100">
+            <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-2">Design Notes</h3>
+            <ul class="text-sm text-blue-700 space-y-1 list-disc ml-4">
+                <li>Standard E24 resistor values are used for "Actual" results.</li>
+                <li>For high power applications, ensure resistors can handle the dissipated power.</li>
+                <li>At high frequencies (RF), parasitic capacitance and inductance of resistors become significant.</li>
+                <li>Symmetrical design means Input and Output impedance are intended to be identical.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="../common.js"></script>
+    <script src="../schematic.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+    <script>
+        let lastCalcValues = null;
+
+        function storeCalcValues(vals) {
+            lastCalcValues = vals;
+        }
+
+        function openInFalstad() {
+            if (!lastCalcValues) {
+                alert('Please calculate first');
+                return;
+            }
+            const sch = buildFalstadSchematic(lastCalcValues);
+            sch.openInFalstad();
+        }
+
+        function buildFalstadSchematic(v) {
+            const sch = new Schematic(500, 300);
+            sch.setFalstadOptions({ vMax: 5 });
+
+            // Input Source
+            sch.place('ac-source-h', 'Vin', 50, 100, { value: 1, freq: 1000, label: 'Vin' });
+            sch.place('resistor-h', 'Rs', 120, 100, { value: v.z0, label: 'Z0 (' + v.z0 + 'Ω)' });
+
+            // Pi Network
+            sch.place('resistor-v', 'R1', 200, 150, { value: v.r1, label: fmt(v.r1, 'Ω') });
+            sch.place('resistor-h', 'R2', 275, 100, { value: v.r2, label: fmt(v.r2, 'Ω') });
+            sch.place('resistor-v', 'R3', 350, 150, { value: v.r1, label: fmt(v.r1, 'Ω') });
+
+            // Load
+            sch.place('resistor-v', 'RL', 420, 150, { value: v.z0, label: 'Load (' + v.z0 + 'Ω)' });
+
+            // Grounds
+            sch.place('ground', 'GND1', 50, 200);
+            sch.place('ground', 'GND2', 200, 175);
+            sch.place('ground', 'GND3', 350, 175);
+            sch.place('ground', 'GND4', 420, 175);
+
+            // Connections
+            sch.wire('Vin.b', 'Rs.a');
+            sch.wire('Rs.b', { x: 200, y: 100 });
+            sch.node(200, 100);
+            sch.wire({ x: 200, y: 100 }, 'R1.a');
+            sch.wire({ x: 200, y: 100 }, 'R2.a');
+
+            sch.wire('R2.b', { x: 350, y: 100 });
+            sch.node(350, 100);
+            sch.wire({ x: 350, y: 100 }, 'R3.a');
+            sch.wire({ x: 350, y: 100 }, { x: 420, y: 100 });
+            sch.wire({ x: 420, y: 100 }, 'RL.a');
+
+            sch.wire('Vin.a', 'GND1.a');
+
+            // Probes
+            sch.place('probe', 'In', 160, 100);
+            sch.place('probe', 'Out', 380, 100);
+
+            return sch;
+        }
+
+        function drawSchematic(r1, r2, z0) {
+            const sch = new Schematic(450, 250);
+
+            // Labels
+            sch.label('Input', 30, 75, { bold: true });
+            sch.label('Output', 330, 75, { bold: true });
+
+            // Main path
+            sch.wire({ x: 30, y: 100 }, { x: 125, y: 100 });
+            sch.node(125, 100);
+
+            // R1
+            sch.place('resistor-v', 'R1', 125, 140, { label: fmt(r1, 'Ω'), labelPos: 'left' });
+            sch.wire({ x: 125, y: 100 }, 'R1.a');
+            sch.place('ground', 'GND1', 125, 190);
+            sch.wire('R1.b', 'GND1.a');
+
+            // R2
+            sch.place('resistor-h', 'R2', 200, 100, { label: fmt(r2, 'Ω') });
+            sch.wire({ x: 125, y: 100 }, 'R2.a');
+
+            // R3
+            sch.wire('R2.b', { x: 275, y: 100 });
+            sch.node(275, 100);
+            sch.place('resistor-v', 'R3', 275, 140, { label: fmt(r1, 'Ω') });
+            sch.wire({ x: 275, y: 100 }, 'R3.a');
+            sch.place('ground', 'GND2', 275, 190);
+            sch.wire('R3.b', 'GND2.a');
+
+            // Final Output wire
+            sch.wire({ x: 275, y: 100 }, { x: 370, y: 100 });
+
+            // Impedance markers
+            sch.label('Zin = ' + z0 + 'Ω', 30, 120, { anchor: 'start' });
+            sch.label('Zout = ' + z0 + 'Ω', 300, 120, { anchor: 'start' });
+
+            return sch.toSVG();
+        }
+
+        function calculate() {
+            const attenDb = parseFloat(document.getElementById('attenuation').value);
+            const z0 = parseFloat(document.getElementById('z0').value);
+
+            if (isNaN(attenDb) || isNaN(z0)) return;
+
+            // Ideal calculations
+            const K = Math.pow(10, attenDb / 20);
+            const r2_ideal = z0 * (Math.pow(K, 2) - 1) / (2 * K);
+            const r1_ideal = z0 * (K + 1) / (K - 1);
+
+            // Round to E24
+            const r1_rounded = roundToE24(r1_ideal);
+            const r2_rounded = roundToE24(r2_ideal);
+
+            // Actual Performance with Rounded Values
+            // R3 is same as R1
+            const r1 = r1_rounded;
+            const r2 = r2_rounded;
+            const r3 = r1_rounded;
+
+            // Load is Z0
+            const load = z0;
+
+            // Total resistance at output node B
+            const rb = parallel(r3, load);
+            // Total resistance at input node A
+            const zin = parallel(r1, r2 + rb);
+
+            // Voltage gain (Vb / Va)
+            // Vb = Va * rb / (r2 + rb)
+            const gain = rb / (r2 + rb);
+            const actualAtten = -20 * Math.log10(gain);
+
+            // Return Loss and VSWR
+            // Reflection coefficient Gamma = (Zin - Z0) / (Zin + Z0)
+            const gamma = Math.abs((zin - z0) / (zin + z0));
+            let rl = Infinity;
+            let vswr = 1.0;
+
+            if (gamma > 0) {
+                rl = -20 * Math.log10(gamma);
+                vswr = (1 + gamma) / (1 - gamma);
+            }
+
+            // Results UI
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('schematic').innerHTML = drawSchematic(r1, r2, z0);
+
+            document.getElementById('r1_out').textContent = fmtLong(r1, 'Ω');
+            document.getElementById('r2_out').textContent = fmtLong(r2, 'Ω');
+
+            document.getElementById('actual_atten').textContent = actualAtten.toFixed(2) + ' dB';
+            document.getElementById('actual_zin').textContent = zin.toFixed(2) + ' Ω';
+            document.getElementById('actual_rl').textContent = isFinite(rl) ? rl.toFixed(1) + ' dB' : '∞ dB';
+            document.getElementById('actual_vswr').textContent = vswr.toFixed(3);
+
+            // Warnings
+            const warn = document.getElementById('warning');
+            let warnings = [];
+            if (Math.abs(actualAtten - attenDb) > 1.0) {
+                warnings.push('Warning: Actual attenuation differs significantly from target due to standard resistor values.');
+            }
+            if (vswr > 1.2) {
+                warnings.push('Warning: Poor impedance match (VSWR > 1.2). The attenuator may cause reflections.');
+            }
+
+            if (warnings.length > 0) {
+                warn.innerHTML = warnings.join('<br>');
+                warn.classList.remove('hidden');
+            } else {
+                warn.classList.add('hidden');
+            }
+
+            storeCalcValues({ r1, r2, z0 });
+        }
+
+        function resetDefaults() {
+            document.getElementById('attenuation').value = '10';
+            document.getElementById('z0').value = '50';
+            calculate();
+        }
+
+        window.onload = function() {
+            calculate();
+        };
+    </script>
+</body>
+</html>

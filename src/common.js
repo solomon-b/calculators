@@ -97,6 +97,12 @@ function fmt(value, unit) {
         if (value >= 1e-9) return (value * 1e9).toFixed(0) + 'nF';
         return (value * 1e12).toFixed(0) + 'pF';
     }
+    if (unit === 'H') {
+        if (value >= 1) return value.toFixed(2) + 'H';
+        if (value >= 1e-3) return (value * 1e3).toFixed(1) + 'mH';
+        if (value >= 1e-6) return (value * 1e6).toFixed(1) + 'µH';
+        return (value * 1e9).toFixed(0) + 'nH';
+    }
     if (unit === 'V') {
         const absV = Math.abs(value);
         if (absV >= 1) return value.toFixed(2) + 'V';
@@ -129,6 +135,12 @@ function fmtLong(value, unit) {
         if (value >= 1e-6) return (value * 1e6).toFixed(2) + ' µF';
         if (value >= 1e-9) return (value * 1e9).toFixed(1) + ' nF';
         return (value * 1e12).toFixed(0) + ' pF';
+    }
+    if (unit === 'H') {
+        if (value >= 1) return value.toFixed(3) + ' H';
+        if (value >= 1e-3) return (value * 1e3).toFixed(2) + ' mH';
+        if (value >= 1e-6) return (value * 1e6).toFixed(1) + ' µH';
+        return (value * 1e9).toFixed(0) + ' nH';
     }
     if (unit === 'V') {
         const absV = Math.abs(value);

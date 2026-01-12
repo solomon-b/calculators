@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frequency, Period, & Wavelength Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: '#2266cc',
+                }
+            }
+        }
+    }
+    </script>
+    <style>
+        svg text { font-family: ui-monospace, monospace; }
+        .katex { font-size: 1.5em !important; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
+</head>
+<body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Frequency, Period, & Wavelength</h1>
+    <p class="text-gray-600 text-lg max-w-xl mb-6">
+        Convert between frequency, period, and wavelength for waves in any medium.
+    </p>
+
+    <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-8">
+        <h2 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-3">Wave Parameters</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Frequency -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1 cursor-help" title="Number of cycles per second (f).">Frequency (f):</label>
+                <div class="flex gap-2">
+                    <input type="number" id="freq" value="1" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" oninput="updateFromFreq()">
+                    <select id="freq_unit" class="px-1 py-1 border border-gray-300 rounded text-sm" onchange="convertUnit('freq')">
+                        <option value="1">Hz</option>
+                        <option value="1000" selected>kHz</option>
+                        <option value="1000000">MHz</option>
+                        <option value="1000000000">GHz</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Period -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1 cursor-help" title="Duration of one cycle (T = 1/f).">Period (T):</label>
+                <div class="flex gap-2">
+                    <input type="number" id="period" value="1" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" oninput="updateFromPeriod()">
+                    <select id="period_unit" class="px-1 py-1 border border-gray-300 rounded text-sm" onchange="convertUnit('period')">
+                        <option value="1">s</option>
+                        <option value="0.001" selected>ms</option>
+                        <option value="0.000001">µs</option>
+                        <option value="0.000000001">ns</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Wavelength -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1 cursor-help" title="Physical distance between wave peaks (λ = v/f).">Wavelength (λ):</label>
+                <div class="flex gap-2">
+                    <input type="number" id="wave" value="300" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" oninput="updateFromWave()">
+                    <select id="wave_unit" class="px-1 py-1 border border-gray-300 rounded text-sm" onchange="convertUnit('wave')">
+                        <option value="1" selected>m</option>
+                        <option value="0.01">cm</option>
+                        <option value="0.001">mm</option>
+                        <option value="0.3048">ft</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Propagation Speed -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1 cursor-help" title="Speed at which the wave travels (v).">Propagation Speed (v):</label>
+                <div class="flex gap-2 mb-2">
+                    <input type="number" id="speed" value="299792458" step="any" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" oninput="updateFromSpeed()">
+                    <span class="flex items-center text-sm text-gray-500 whitespace-nowrap">m/s</span>
+                </div>
+                <select id="speed_preset" class="w-full px-2 py-1 border border-gray-300 rounded text-sm" onchange="applySpeedPreset()">
+                    <option value="299792458" selected>Light in Vacuum / Air (c)</option>
+                    <option value="343">Sound in Air (20°C)</option>
+                    <option value="1481">Sound in Water (20°C)</option>
+                    <option value="custom">Custom Speed...</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Wave Visualization</h2>
+        <div id="visualization" class="w-full bg-white border border-gray-200 rounded p-4 overflow-hidden">
+            <svg id="waveSvg" viewBox="0 0 600 120" class="w-full h-auto">
+                <path id="wavePath" d="" fill="none" stroke="#2266cc" stroke-width="2" />
+                <!-- Measuring lines for wavelength -->
+                <line id="measureLine" x1="100" y1="20" x2="300" y2="20" stroke="#cc2222" stroke-width="1.5" stroke-dasharray="4,2" />
+                <text id="measureLabel" x="200" y="15" text-anchor="middle" fill="#cc2222" font-size="12" font-family="monospace">λ</text>
+                <line x1="100" y1="15" x2="100" y2="25" stroke="#cc2222" stroke-width="1.5" />
+                <line x1="300" y1="15" x2="300" y2="25" stroke="#cc2222" stroke-width="1.5" />
+            </svg>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            <div class="p-3 bg-white rounded border border-gray-200">
+                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Frequency</div>
+                <div id="res_freq" class="font-mono text-lg text-primary">--</div>
+            </div>
+            <div class="p-3 bg-white rounded border border-gray-200">
+                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Period</div>
+                <div id="res_period" class="font-mono text-lg text-primary">--</div>
+            </div>
+            <div class="p-3 bg-white rounded border border-gray-200">
+                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Wavelength</div>
+                <div id="res_wave" class="font-mono text-lg text-primary">--</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8 bg-blue-50 p-4 rounded border border-blue-100">
+        <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-2">Physics Reference</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-blue-700">
+            <ul class="space-y-1 list-disc ml-4">
+                <li>$f = 1 / T$ (Frequency and Period)</li>
+                <li>$v = f \cdot \lambda$ (Wave Speed)</li>
+                <li>$\lambda = v / f$ (Wavelength)</li>
+            </ul>
+            <ul class="space-y-1 list-disc ml-4">
+                <li>$1\text{ Hz} = 1\text{ cycle / second}$</li>
+                <li>$c \approx 300,000\text{ km/s}$ (Light)</li>
+                <li>$v_{sound} \approx 343\text{ m/s}$</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="../common.js"></script>
+    <script>
+        // Track previous units to allow value conversion on dropdown change
+        let prevUnits = {
+            freq: 1000,
+            period: 0.001,
+            wave: 1
+        };
+
+        function getFreq() { return parseFloat(document.getElementById('freq').value) * parseFloat(document.getElementById('freq_unit').value); }
+        function getPeriod() { return parseFloat(document.getElementById('period').value) * parseFloat(document.getElementById('period_unit').value); }
+        function getWave() { return parseFloat(document.getElementById('wave').value) * parseFloat(document.getElementById('wave_unit').value); }
+        function getSpeed() { return parseFloat(document.getElementById('speed').value); }
+
+        function setFreq(val) {
+            const unit = parseFloat(document.getElementById('freq_unit').value);
+            document.getElementById('freq').value = (val / unit).toPrecision(6);
+            prevUnits.freq = unit;
+        }
+        function setPeriod(val) {
+            const unit = parseFloat(document.getElementById('period_unit').value);
+            document.getElementById('period').value = (val / unit).toPrecision(6);
+            prevUnits.period = unit;
+        }
+        function setWave(val) {
+            const unit = parseFloat(document.getElementById('wave_unit').value);
+            document.getElementById('wave').value = (val / unit).toPrecision(6);
+            prevUnits.wave = unit;
+        }
+
+        // Convert current field value to the new unit without changing physical quantity
+        function convertUnit(id) {
+            const input = document.getElementById(id);
+            const unitSelect = document.getElementById(id + '_unit');
+            const newUnit = parseFloat(unitSelect.value);
+            const oldUnit = prevUnits[id];
+            
+            if (input.value !== "") {
+                const physicalVal = parseFloat(input.value) * oldUnit;
+                input.value = (physicalVal / newUnit).toPrecision(6);
+            }
+            
+            prevUnits[id] = newUnit;
+            refreshResults();
+        }
+
+        function updateFromFreq() {
+            const f = getFreq();
+            if (f <= 0 || isNaN(f)) return;
+            const t = 1 / f;
+            const v = getSpeed();
+            const l = v / f;
+            
+            // Set values and update trackers
+            setPeriod(t);
+            setWave(l);
+            prevUnits.freq = parseFloat(document.getElementById('freq_unit').value);
+            refreshResults();
+        }
+
+        function updateFromPeriod() {
+            const t = getPeriod();
+            if (t <= 0 || isNaN(t)) return;
+            const f = 1 / t;
+            const v = getSpeed();
+            const l = v / f;
+            
+            setFreq(f);
+            setWave(l);
+            prevUnits.period = parseFloat(document.getElementById('period_unit').value);
+            refreshResults();
+        }
+
+        function updateFromWave() {
+            const l = getWave();
+            const v = getSpeed();
+            if (l <= 0 || v <= 0 || isNaN(l)) return;
+            const f = v / l;
+            const t = 1 / f;
+            
+            setFreq(f);
+            setPeriod(t);
+            prevUnits.wave = parseFloat(document.getElementById('wave_unit').value);
+            refreshResults();
+        }
+
+        function updateFromSpeed() {
+            document.getElementById('speed_preset').value = 'custom';
+            updateFromFreq(); // Recalculate wavelength
+        }
+
+        function applySpeedPreset() {
+            const preset = document.getElementById('speed_preset').value;
+            if (preset !== 'custom') {
+                document.getElementById('speed').value = preset;
+                updateFromFreq();
+            }
+        }
+
+        function refreshResults() {
+            const f = getFreq();
+            const t = getPeriod();
+            const l = getWave();
+            const waveUnit = parseFloat(document.getElementById('wave_unit').value);
+
+            document.getElementById('res_freq').textContent = fmtLong(f, 'Hz');
+            document.getElementById('res_period').textContent = (t < 1e-3) ? (t * 1e6).toFixed(3) + ' µs' : (t < 1) ? (t * 1000).toFixed(3) + ' ms' : t.toFixed(4) + ' s';
+            
+            if (waveUnit === 0.3048) {
+                document.getElementById('res_wave').textContent = (l / 0.3048).toFixed(3) + ' ft';
+            } else {
+                document.getElementById('res_wave').textContent = (l < 0.01) ? (l * 1000).toFixed(2) + ' mm' : (l < 1) ? (l * 100).toFixed(2) + ' cm' : l.toFixed(3) + ' m';
+            }
+
+            drawWave(l);
+        }
+
+        function drawWave(wavelengthM) {
+            const svg = document.getElementById('waveSvg');
+            const path = document.getElementById('wavePath');
+            const waveUnit = parseFloat(document.getElementById('wave_unit').value);
+            
+            // Normalize visual wavelength
+            // We'll show roughly 2-4 cycles
+            const width = 600;
+            const height = 120;
+            const centerY = height / 2;
+            const amplitude = 30;
+            
+            // Visual wavelength in pixels (fixed for display, but we'll show labels)
+            const visualWavelength = 150; 
+            
+            let d = `M 0 ${centerY}`;
+            for (let x = 0; x <= width; x++) {
+                const y = centerY + amplitude * Math.sin((x / visualWavelength) * 2 * Math.PI);
+                d += ` L ${x} ${y}`;
+            }
+            path.setAttribute('d', d);
+
+            // Update measure line
+            const measureLine = document.getElementById('measureLine');
+            const measureLabel = document.getElementById('measureLabel');
+            const startX = visualWavelength / 4; // peak
+            const endX = startX + visualWavelength;
+            
+            measureLine.setAttribute('x1', startX);
+            measureLine.setAttribute('x2', endX);
+            
+            // Update markers
+            if (waveUnit === 0.3048) {
+                measureLabel.textContent = 'λ = ' + (wavelengthM / 0.3048).toFixed(2) + ' ft';
+            } else {
+                measureLabel.textContent = 'λ = ' + (wavelengthM < 1e-3 ? (wavelengthM * 1e6).toFixed(1) + ' µm' : wavelengthM < 1 ? (wavelengthM * 100).toFixed(1) + ' cm' : wavelengthM.toFixed(2) + ' m');
+            }
+        }
+
+        function resetDefaults() {
+            document.getElementById('freq').value = '1';
+            document.getElementById('freq_unit').value = '1000';
+            document.getElementById('speed_preset').value = '299792458';
+            applySpeedPreset();
+        }
+
+        window.onload = function() {
+            updateFromFreq();
+        };
+    </script>
+</body>
+</html>
