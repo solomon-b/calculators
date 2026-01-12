@@ -19,7 +19,11 @@
     <style>
         /* Styles for dynamically generated SVG */
         svg text { font-family: ui-monospace, monospace; }
+        .katex { font-size: 1.5em !important; }
     </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, { delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}] });"></script>
 </head>
 <body class="max-w-3xl mx-auto px-4 sm:px-6 py-8 font-sans leading-relaxed">
     <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">CE Amplifier Calculator</h1>
@@ -174,96 +178,94 @@
             <div class="mt-4 p-4 bg-gray-100 rounded text-sm">
                 <h3 class="text-base font-semibold text-gray-600 mt-0 mb-2">Step 1: Set the DC Operating Point</h3>
                 <p>Choose emitter voltage for thermal stability (typically 10% of Vcc or 1V minimum):</p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    V<sub>E</sub> = max(0.1 &#215; V<sub>CC</sub>, 1V)<br>
-                    V<sub>B</sub> = V<sub>E</sub> + 0.7V
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $V_E = \max(0.1 \cdot V_{CC},\; 1\text{V})$<br>
+                    $V_B = V_E + 0.7\text{V}$
+                </div>
                 <div id="calc-step1" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 2: Calculate Emitter Resistor</h3>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    R<sub>E</sub> = V<sub>E</sub> / I<sub>C</sub>
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $R_E = \frac{V_E}{I_C}$
+                </div>
                 <div id="calc-step2" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 3: Calculate Intrinsic Emitter Resistance</h3>
-                <p>This is the transistor's internal resistance, temperature dependent (V<sub>T</sub> = kT/q &#8776; 26mV at 25&#176;C):</p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    r<sub>e</sub>' = V<sub>T</sub> / I<sub>C</sub> = 26mV / I<sub>C</sub>
-                </code>
+                <p>This is the transistor's internal resistance, temperature dependent ($V_T = kT/q \approx 26\text{mV}$ at 25°C):</p>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $r_e' = \frac{V_T}{I_C} = \frac{26\text{mV}}{I_C}$
+                </div>
                 <div id="calc-step3" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 4: Calculate Collector Resistor for Desired Gain</h3>
                 <p><b>Without bypass (stable gain):</b></p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    A<sub>v</sub> = R<sub>C</sub> / (R<sub>E</sub> + r<sub>e</sub>')<br>
-                    &#8756; R<sub>C</sub> = A<sub>v</sub> &#215; (R<sub>E</sub> + r<sub>e</sub>')
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $A_v = \frac{R_C}{R_E + r_e'}$ &nbsp; ∴ &nbsp; $R_C = A_v \cdot (R_E + r_e')$
+                </div>
                 <p><b>With full bypass (maximum gain):</b></p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    A<sub>v</sub> = R<sub>C</sub> / r<sub>e</sub>'<br>
-                    &#8756; R<sub>C</sub> = A<sub>v</sub> &#215; r<sub>e</sub>'
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $A_v = \frac{R_C}{r_e'}$ &nbsp; ∴ &nbsp; $R_C = A_v \cdot r_e'$
+                </div>
                 <div id="calc-step4" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 5: Verify Operating Point</h3>
-                <p>Check that V<sub>C</sub> leaves room for the transistor to operate:</p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    V<sub>C</sub> = V<sub>CC</sub> - I<sub>C</sub> &#215; R<sub>C</sub><br>
-                    Requirement: V<sub>C</sub> > V<sub>E</sub> + 0.3V (active region)
-                </code>
+                <p>Check that $V_C$ leaves room for the transistor to operate:</p>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $V_C = V_{CC} - I_C \cdot R_C$<br>
+                    Requirement: $V_C > V_E + 0.3\text{V}$ (active region)
+                </div>
                 <div id="calc-step5" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 6: Calculate Bias Resistors</h3>
-                <p>Use the "stiff divider" rule - divider current should be ~10&#215; base current:</p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    I<sub>B</sub> = I<sub>C</sub> / &#946;<br>
-                    I<sub>divider</sub> = 10 &#215; I<sub>B</sub><br>
-                    R<sub>total</sub> = V<sub>CC</sub> / I<sub>divider</sub><br>
-                    R<sub>2</sub> = (V<sub>B</sub> / V<sub>CC</sub>) &#215; R<sub>total</sub><br>
-                    R<sub>1</sub> = R<sub>total</sub> - R<sub>2</sub>
-                </code>
+                <p>Use the "stiff divider" rule - divider current should be ~10× base current:</p>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $I_B = \frac{I_C}{\beta}$<br>
+                    $I_{divider} = 10 \cdot I_B$<br>
+                    $R_{total} = \frac{V_{CC}}{I_{divider}}$<br>
+                    $R_2 = \frac{V_B}{V_{CC}} \cdot R_{total}$<br>
+                    $R_1 = R_{total} - R_2$
+                </div>
                 <div id="calc-step6" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 7: Calculate Input Impedance</h3>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    Z<sub>in(base)</sub> = &#946; &#215; (R<sub>E</sub> + r<sub>e</sub>') &nbsp;&nbsp;<i>[without bypass]</i><br>
-                    Z<sub>in(base)</sub> = &#946; &#215; r<sub>e</sub>' &nbsp;&nbsp;<i>[with bypass]</i><br>
-                    Z<sub>in</sub> = R<sub>1</sub> &#8741; R<sub>2</sub> &#8741; Z<sub>in(base)</sub>
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $Z_{in(base)} = \beta \cdot (R_E + r_e')$ &nbsp; <i>[without bypass]</i><br>
+                    $Z_{in(base)} = \beta \cdot r_e'$ &nbsp; <i>[with bypass]</i><br>
+                    $Z_{in} = R_1 \parallel R_2 \parallel Z_{in(base)}$
+                </div>
                 <div id="calc-step7" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 8: Calculate Coupling Capacitors</h3>
                 <p>Size for -3dB at the desired low frequency cutoff:</p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    C<sub>in</sub> = 1 / (2&#960; &#215; f<sub>low</sub> &#215; Z<sub>in</sub>)<br>
-                    C<sub>out</sub> = 1 / (2&#960; &#215; f<sub>low</sub> &#215; R<sub>load</sub>)
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $C_{in} = \frac{1}{2\pi \cdot f_{low} \cdot Z_{in}}$<br>
+                    $C_{out} = \frac{1}{2\pi \cdot f_{low} \cdot R_{load}}$
+                </div>
                 <div id="calc-step8" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 9: Calculate Bypass Capacitor (if used)</h3>
                 <p>Must have low impedance at lowest frequency of interest:</p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    X<sub>Ce</sub> << R<sub>E</sub> at f<sub>low</sub><br>
-                    C<sub>E</sub> &#8776; 10 / (2&#960; &#215; f<sub>low</sub> &#215; R<sub>E</sub>)
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    $X_{C_E} \ll R_E$ at $f_{low}$<br>
+                    $C_E \approx \frac{10}{2\pi \cdot f_{low} \cdot R_E}$
+                </div>
                 <div id="calc-step9" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Step 10: Calculate Effective Gain</h3>
                 <p>Account for loading at input and output:</p>
-                <code class="block bg-white p-2 my-2 border border-gray-200 rounded">
-                    Input attenuation = Z<sub>in</sub> / (Z<sub>in</sub> + Z<sub>source</sub>)<br>
-                    Output attenuation = R<sub>load</sub> / (R<sub>load</sub> + R<sub>C</sub>)<br>
-                    Effective gain = A<sub>v</sub> &#215; input atten &#215; output atten
-                </code>
+                <div class="bg-white p-3 my-2 border border-gray-200 rounded">
+                    Input attenuation $= \frac{Z_{in}}{Z_{in} + Z_{source}}$<br>
+                    Output attenuation $= \frac{R_{load}}{R_{load} + R_C}$<br>
+                    Effective gain $= A_v \cdot$ input atten $\cdot$ output atten
+                </div>
                 <div id="calc-step10" class="bg-blue-50 p-2 my-2 border border-blue-200 rounded font-mono"></div>
 
                 <h3 class="text-base font-semibold text-gray-600 mt-4 mb-2">Key Relationships</h3>
-                <ul class="list-disc ml-5 space-y-1">
-                    <li><b>Output impedance:</b> Z<sub>out</sub> &#8776; R<sub>C</sub></li>
-                    <li><b>Voltage swing:</b> Limited by V<sub>C</sub> &#8722; V<sub>E</sub> (down) and V<sub>CC</sub> &#8722; V<sub>C</sub> (up)</li>
-                    <li><b>AC load line slope:</b> &#8722;1/(R<sub>C</sub> &#8741; R<sub>load</sub>)</li>
-                    <li><b>DC load line slope:</b> &#8722;1/(R<sub>C</sub> + R<sub>E</sub>)</li>
+                <ul class="list-disc ml-5 space-y-2">
+                    <li><b>Output impedance:</b> $Z_{out} \approx R_C$</li>
+                    <li><b>Voltage swing:</b> Limited by $V_C - V_E$ (down) and $V_{CC} - V_C$ (up)</li>
+                    <li><b>AC load line slope:</b> $-1/(R_C \parallel R_{load})$</li>
+                    <li><b>DC load line slope:</b> $-1/(R_C + R_E)$</li>
                 </ul>
             </div>
         </details>
@@ -882,69 +884,74 @@
                     cinCalc, cinRounded, coutCalc, coutRounded, ceCalc, ceRounded,
                     bypassMode, targetGain, transGain, inputAtten, outputAtten, effectiveGain } = params;
 
+            // Helper to format numbers for LaTeX (strip units, keep value)
+            const n = (val, decimals = 2) => val.toFixed(decimals);
+            const nk = (val) => (val/1000).toFixed(2); // to kΩ
+            const nu = (val) => (val*1e6).toFixed(2); // to µA
+
             // Step 1: DC Operating Point
             document.getElementById('calc-step1').innerHTML =
-                `V<sub>E</sub> = max(0.1 × ${vcc}V, 1V) = <b>${ve.toFixed(2)}V</b><br>` +
-                `V<sub>B</sub> = ${ve.toFixed(2)}V + 0.7V = <b>${vb.toFixed(2)}V</b>`;
+                `$V_E = \\max(0.1 \\times ${vcc}\\text{V},\\; 1\\text{V}) = \\mathbf{${n(ve)}\\text{V}}$<br>` +
+                `$V_B = ${n(ve)}\\text{V} + 0.7\\text{V} = \\mathbf{${n(vb)}\\text{V}}$`;
 
             // Step 2: Emitter Resistor
             document.getElementById('calc-step2').innerHTML =
-                `R<sub>E</sub> = ${ve.toFixed(2)}V / ${(ic*1000).toFixed(2)}mA = ${re.toFixed(1)}Ω → <b>${fmtLong(reRounded, 'Ω')}</b> (E24)`;
+                `$R_E = \\frac{${n(ve)}\\text{V}}{${n(ic*1000)}\\text{mA}} = ${n(re, 1)}\\Omega \\rightarrow \\mathbf{${fmtLong(reRounded, 'Ω')}}$ (E24)`;
 
             // Step 3: Intrinsic Emitter Resistance
             document.getElementById('calc-step3').innerHTML =
-                `r<sub>e</sub>' = 26mV / ${(ic*1000).toFixed(2)}mA = <b>${reIntrinsic.toFixed(2)}Ω</b>`;
+                `$r_e' = \\frac{26\\text{mV}}{${n(ic*1000)}\\text{mA}} = \\mathbf{${n(reIntrinsic)}\\Omega}$`;
 
             // Step 4: Collector Resistor
             if (bypassMode === 'full') {
                 document.getElementById('calc-step4').innerHTML =
                     `<i>Using bypass mode:</i><br>` +
-                    `R<sub>C</sub> = ${targetGain} × ${reIntrinsic.toFixed(2)}Ω = ${rc.toFixed(1)}Ω → <b>${fmtLong(rcRounded, 'Ω')}</b> (E24)`;
+                    `$R_C = ${targetGain} \\times ${n(reIntrinsic)}\\Omega = ${n(rc, 1)}\\Omega \\rightarrow \\mathbf{${fmtLong(rcRounded, 'Ω')}}$ (E24)`;
             } else {
                 document.getElementById('calc-step4').innerHTML =
                     `<i>No bypass (stable gain):</i><br>` +
-                    `R<sub>C</sub> = ${targetGain} × (${fmtLong(reRounded, 'Ω')} + ${reIntrinsic.toFixed(2)}Ω) = ${rc.toFixed(1)}Ω → <b>${fmtLong(rcRounded, 'Ω')}</b> (E24)`;
+                    `$R_C = ${targetGain} \\times (${fmtLong(reRounded, 'Ω')} + ${n(reIntrinsic)}\\Omega) = ${n(rc, 1)}\\Omega \\rightarrow \\mathbf{${fmtLong(rcRounded, 'Ω')}}$ (E24)`;
             }
 
             // Step 5: Verify Operating Point
             const vcCheck = vcActual > vcMin ? '✓ OK' : '✗ Too low!';
             document.getElementById('calc-step5').innerHTML =
-                `V<sub>C</sub> = ${vcc}V - ${(ic*1000).toFixed(2)}mA × ${fmtLong(rcRounded, 'Ω')} = <b>${vcActual.toFixed(2)}V</b><br>` +
-                `Check: ${vcActual.toFixed(2)}V > ${ve.toFixed(2)}V + 0.3V = ${vcMin.toFixed(2)}V? <b>${vcCheck}</b>`;
+                `$V_C = ${vcc}\\text{V} - ${n(ic*1000)}\\text{mA} \\times ${fmtLong(rcRounded, 'Ω')} = \\mathbf{${n(vcActual)}\\text{V}}$<br>` +
+                `Check: $${n(vcActual)}\\text{V} > ${n(ve)}\\text{V} + 0.3\\text{V} = ${n(vcMin)}\\text{V}$? <b>${vcCheck}</b>`;
 
             // Step 6: Bias Resistors
             document.getElementById('calc-step6').innerHTML =
-                `I<sub>B</sub> = ${(ic*1000).toFixed(2)}mA / ${beta} = ${(ib*1e6).toFixed(2)}µA<br>` +
-                `I<sub>divider</sub> = 10 × ${(ib*1e6).toFixed(2)}µA = ${(idivider*1e6).toFixed(1)}µA<br>` +
-                `R<sub>total</sub> = ${vcc}V / ${(idivider*1e6).toFixed(1)}µA = ${(rtotal/1000).toFixed(1)}kΩ<br>` +
-                `R<sub>2</sub> = (${vb.toFixed(2)}V / ${vcc}V) × ${(rtotal/1000).toFixed(1)}kΩ = ${(r2/1000).toFixed(2)}kΩ → <b>${fmtLong(r2Rounded, 'Ω')}</b><br>` +
-                `R<sub>1</sub> = ${(rtotal/1000).toFixed(1)}kΩ - ${(r2/1000).toFixed(2)}kΩ = ${(r1/1000).toFixed(2)}kΩ → <b>${fmtLong(r1Rounded, 'Ω')}</b>`;
+                `$I_B = \\frac{${n(ic*1000)}\\text{mA}}{${beta}} = ${nu(ib)}\\mu\\text{A}$<br>` +
+                `$I_{div} = 10 \\times ${nu(ib)}\\mu\\text{A} = ${n(idivider*1e6, 1)}\\mu\\text{A}$<br>` +
+                `$R_{total} = \\frac{${vcc}\\text{V}}{${n(idivider*1e6, 1)}\\mu\\text{A}} = ${nk(rtotal)}\\text{k}\\Omega$<br>` +
+                `$R_2 = \\frac{${n(vb)}\\text{V}}{${vcc}\\text{V}} \\times ${nk(rtotal)}\\text{k}\\Omega = ${nk(r2)}\\text{k}\\Omega \\rightarrow \\mathbf{${fmtLong(r2Rounded, 'Ω')}}$<br>` +
+                `$R_1 = ${nk(rtotal)}\\text{k}\\Omega - ${nk(r2)}\\text{k}\\Omega = ${nk(r1)}\\text{k}\\Omega \\rightarrow \\mathbf{${fmtLong(r1Rounded, 'Ω')}}$`;
 
             // Step 7: Input Impedance
             if (bypassMode === 'full') {
                 document.getElementById('calc-step7').innerHTML =
-                    `Z<sub>in(base)</sub> = ${beta} × ${reIntrinsic.toFixed(2)}Ω = ${fmtLong(zinBase, 'Ω')}<br>` +
-                    `Z<sub>in</sub> = ${fmtLong(r1Rounded, 'Ω')} ∥ ${fmtLong(r2Rounded, 'Ω')} ∥ ${fmtLong(zinBase, 'Ω')} = <b>${fmtLong(zin, 'Ω')}</b>`;
+                    `$Z_{in(base)} = ${beta} \\times ${n(reIntrinsic)}\\Omega = ${fmtLong(zinBase, 'Ω')}$<br>` +
+                    `$Z_{in} = ${fmtLong(r1Rounded, 'Ω')} \\parallel ${fmtLong(r2Rounded, 'Ω')} \\parallel ${fmtLong(zinBase, 'Ω')} = \\mathbf{${fmtLong(zin, 'Ω')}}$`;
             } else {
                 document.getElementById('calc-step7').innerHTML =
-                    `Z<sub>in(base)</sub> = ${beta} × (${fmtLong(reRounded, 'Ω')} + ${reIntrinsic.toFixed(2)}Ω) = ${fmtLong(zinBase, 'Ω')}<br>` +
-                    `Z<sub>in</sub> = ${fmtLong(r1Rounded, 'Ω')} ∥ ${fmtLong(r2Rounded, 'Ω')} ∥ ${fmtLong(zinBase, 'Ω')} = <b>${fmtLong(zin, 'Ω')}</b>`;
+                    `$Z_{in(base)} = ${beta} \\times (${fmtLong(reRounded, 'Ω')} + ${n(reIntrinsic)}\\Omega) = ${fmtLong(zinBase, 'Ω')}$<br>` +
+                    `$Z_{in} = ${fmtLong(r1Rounded, 'Ω')} \\parallel ${fmtLong(r2Rounded, 'Ω')} \\parallel ${fmtLong(zinBase, 'Ω')} = \\mathbf{${fmtLong(zin, 'Ω')}}$`;
             }
 
             // Step 8: Coupling Capacitors
-            const rloadStr = isFinite(rload) ? fmtLong(rload, 'Ω') : '∞';
+            const rloadStr = isFinite(rload) ? fmtLong(rload, 'Ω') : '\\infty';
             const coutStr = isFinite(rload)
-                ? `C<sub>out</sub> = 1 / (2π × ${fLow}Hz × ${rloadStr}) = ${fmtLong(coutCalc, 'F')} → <b>${fmtLong(coutRounded, 'F')}</b>`
-                : `C<sub>out</sub> = <i>No load specified, using default</i> → <b>${fmtLong(coutRounded, 'F')}</b>`;
+                ? `$C_{out} = \\frac{1}{2\\pi \\times ${fLow}\\text{Hz} \\times ${fmtLong(rload, 'Ω')}} = ${fmtLong(coutCalc, 'F')} \\rightarrow \\mathbf{${fmtLong(coutRounded, 'F')}}$`
+                : `$C_{out}$: <i>No load specified, using default</i> → $\\mathbf{${fmtLong(coutRounded, 'F')}}$`;
             document.getElementById('calc-step8').innerHTML =
-                `<i>Using f<sub>corner</sub> = f<sub>low</sub>/10 = ${fcorner.toFixed(1)}Hz for margin:</i><br>` +
-                `C<sub>in</sub> = 1 / (2π × ${fcorner.toFixed(1)}Hz × ${fmtLong(zin, 'Ω')}) = ${fmtLong(cinCalc, 'F')} → <b>${fmtLong(cinRounded, 'F')}</b><br>` +
+                `<i>Using $f_{corner} = f_{low}/10 = ${n(fcorner, 1)}\\text{Hz}$ for margin:</i><br>` +
+                `$C_{in} = \\frac{1}{2\\pi \\times ${n(fcorner, 1)}\\text{Hz} \\times ${fmtLong(zin, 'Ω')}} = ${fmtLong(cinCalc, 'F')} \\rightarrow \\mathbf{${fmtLong(cinRounded, 'F')}}$<br>` +
                 coutStr;
 
             // Step 9: Bypass Capacitor
             if (bypassMode === 'full') {
                 document.getElementById('calc-step9').innerHTML =
-                    `C<sub>E</sub> = 10 / (2π × ${fLow}Hz × ${fmtLong(reRounded, 'Ω')}) = ${fmtLong(ceCalc, 'F')} → <b>${fmtLong(ceRounded, 'F')}</b>`;
+                    `$C_E = \\frac{10}{2\\pi \\times ${fLow}\\text{Hz} \\times ${fmtLong(reRounded, 'Ω')}} = ${fmtLong(ceCalc, 'F')} \\rightarrow \\mathbf{${fmtLong(ceRounded, 'F')}}$`;
             } else {
                 document.getElementById('calc-step9').innerHTML =
                     `<i>Bypass not used - gain is stable but lower</i>`;
@@ -952,15 +959,25 @@
 
             // Step 10: Effective Gain
             const inputAttenStr = zsource > 0
-                ? `${fmtLong(zin, 'Ω')} / (${fmtLong(zin, 'Ω')} + ${fmtLong(zsource, 'Ω')}) = ${(inputAtten*100).toFixed(1)}%`
-                : `100% (no source impedance)`;
+                ? `$\\frac{${fmtLong(zin, 'Ω')}}{${fmtLong(zin, 'Ω')} + ${fmtLong(zsource, 'Ω')}} = ${n(inputAtten*100, 1)}\\%$`
+                : `$100\\%$ (no source impedance)`;
             const outputAttenStr = isFinite(rload)
-                ? `${fmtLong(rload, 'Ω')} / (${fmtLong(rload, 'Ω')} + ${fmtLong(rcRounded, 'Ω')}) = ${(outputAtten*100).toFixed(1)}%`
-                : `100% (no load)`;
+                ? `$\\frac{${fmtLong(rload, 'Ω')}}{${fmtLong(rload, 'Ω')} + ${fmtLong(rcRounded, 'Ω')}} = ${n(outputAtten*100, 1)}\\%$`
+                : `$100\\%$ (no load)`;
             document.getElementById('calc-step10').innerHTML =
                 `Input attenuation = ${inputAttenStr}<br>` +
                 `Output attenuation = ${outputAttenStr}<br>` +
-                `Effective gain = ${transGain.toFixed(2)} × ${(inputAtten).toFixed(3)} × ${(outputAtten).toFixed(3)} = <b>${effectiveGain.toFixed(2)}x</b>`;
+                `Effective gain $= ${n(transGain)} \\times ${n(inputAtten, 3)} \\times ${n(outputAtten, 3)} = \\mathbf{${n(effectiveGain)}\\text{x}}$`;
+
+            // Re-render KaTeX for dynamically inserted content
+            if (typeof renderMathInElement === 'function') {
+                renderMathInElement(document.getElementById('designDetails'), {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ]
+                });
+            }
         }
 
         function openInFalstad() {
